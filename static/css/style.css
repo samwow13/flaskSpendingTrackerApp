@@ -1,17 +1,282 @@
-/* Custom styles can go here */
+/* Custom styles for Spending Tracker */
 body {
     padding-top: 56px; /* Account for fixed navbar */
     background-color: #f8f9fa;
+    color: #333;
+    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .container {
     margin-top: 20px;
 }
 
-.card-custom {
+/* Premium Card Styling */
+.premium-card {
+    border: none;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
     margin-bottom: 1.5rem;
 }
 
+.premium-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.premium-card .card-header {
+    background: linear-gradient(135deg, #4a6cf7, #2c3e50);
+    color: white;
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+}
+
+.premium-card .card-title {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Form Controls */
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #4a6cf7;
+    box-shadow: 0 0 0 0.25rem rgba(74, 108, 247, 0.15);
+}
+
+.form-control-lg, .form-select-lg {
+    font-size: 1rem;
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
+/* Button Styling */
+.btn {
+    border-radius: 8px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+/* Shrink and beautify action buttons in expense grid */
+.btn-action-sm {
+    padding: 0.25rem 0.5rem !important;
+    border-radius: 50% !important;
+    width: 2.1rem;
+    height: 2.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05em !important;
+    margin-right: 0.25rem;
+    box-shadow: 0 1px 4px rgba(44,62,80,0.07);
+    transition: background 0.18s, box-shadow 0.18s;
+}
+.btn-action-sm:last-child {
+    margin-right: 0;
+}
+.btn-action-sm .bi {
+    font-size: 1.2em !important;
+}
+.btn-action-sm:hover, .btn-action-sm:focus {
+    background: #e9e9fc !important;
+    box-shadow: 0 2px 8px rgba(44,62,80,0.13);
+    outline: none;
+}
+
+/* Table enhancements for expense grid */
+.expense-table {
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px 0 rgba(91, 109, 250, 0.08), 0 1.5px 4px 0 rgba(44, 62, 80, 0.05);
+    border: 1px solid #e7e7f7;
+    background: #fff;
+}
+.expense-table th {
+    background: linear-gradient(90deg, #ede7fb 0%, #f6f8fc 100%);
+    font-weight: 700;
+    color: #5b6dfa;
+    font-size: 1.07rem;
+    letter-spacing: 0.01em;
+    border-bottom: 2px solid #dedcf7;
+}
+.expense-table td, .expense-table th {
+    vertical-align: middle !important;
+    text-align: center;
+    padding: 0.65rem 0.5rem;
+}
+.expense-table tbody tr:nth-child(even) {
+    background: #f6f8fc;
+}
+.expense-table tbody tr:hover {
+    background: #f2f0fa;
+    transition: background 0.15s;
+}
+.expense-table td.actions-cell {
+    background: transparent;
+    transition: background 0.15s;
+}
+.expense-table td.actions-cell:hover {
+    background: #ede7fb;
+}
+
+/* Badge tweaks for Recurring */
+.badge.bg-info {
+    background: linear-gradient(90deg, #7fd8f7 0%, #4a6cf7 100%) !important;
+    color: #fff !important;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    font-size: 0.95em;
+}
+.badge.bg-light.text-dark {
+    background: #ececec !important;
+    color: #888 !important;
+    font-weight: 600;
+    font-size: 0.95em;
+    border: 1px solid #e0e0e0;
+}
+
+
+
+.btn-primary {
+    background: linear-gradient(135deg, #4a6cf7, #3b5de7);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #3b5de7, #2c3e50);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-outline-secondary {
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #f8f9fa;
+    color: #495057;
+}
+
+/* Form Switch */
+.form-switch .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    cursor: pointer;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: #4a6cf7;
+    border-color: #4a6cf7;
+}
+
+/* Alternating row for tables */
+.alt-row {
+    background-color: #e9ecef !important;
+}
+
+/* Section Header Styling */
+
+.section-header-btn,
+.section-header .btn,
+.section-header .btn-outline-primary,
+.section-header .btn-outline-secondary {
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.85) !important;
+    background: rgba(255,255,255,0.08) !important;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(44,62,80,0.10);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.section-header-btn:hover,
+.section-header .btn:hover,
+.section-header .btn-outline-primary:hover,
+.section-header .btn-outline-secondary:hover {
+    background: rgba(255,255,255,0.18) !important;
+    color: #fff !important;
+    text-decoration: underline;
+    border-color: #fff !important;
+}
+
+
+.card-total-expenses {
+    background: linear-gradient(120deg, #e74c3c 0%, #8e2e2e 100%);
+    color: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 28px 0 rgba(231,76,60,0.14), 0 1.5px 4px 0 rgba(142,46,46,0.12);
+    border: none;
+    overflow: hidden;
+}
+.card-total-expenses .section-header-title,
+.card-total-expenses .card-text,
+.card-total-expenses h5 {
+    color: #fff !important;
+    text-shadow: 0 2px 8px rgba(142,46,46,0.12);
+}
+
+
+.card-monthly-income {
+    background: linear-gradient(120deg, #24997a 0%, #155f4b 100%);
+    color: #fff;
+    border-radius: 18px;
+    box-shadow: 0 6px 28px 0 rgba(36,153,122,0.14), 0 1.5px 4px 0 rgba(21,95,75,0.12);
+    border: none;
+    overflow: hidden;
+}
+.card-monthly-income .section-header-title,
+.card-monthly-income .card-text,
+.card-monthly-income h5 {
+    color: #fff !important;
+    text-shadow: 0 2px 8px rgba(21,95,75,0.12);
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Roboto:wght@400;500&display=swap');
+
+.section-header {
+    background: linear-gradient(100deg, #5b6dfa 0%, #7f53ac 100%);
+    box-shadow: 0 8px 32px 0 rgba(91, 109, 250, 0.18), 0 2px 8px 0 rgba(44, 62, 80, 0.10);
+    border-radius: 16px 16px 0 0;
+    padding: 1.1rem 1.75rem 1rem 1.75rem;
+    margin-bottom: 0;
+    border: none;
+    border-bottom: 3px solid #a18cd1;
+    font-family: 'Montserrat', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 60px;
+    letter-spacing: 0.02em;
+    color: #fff;
+}
+
+.section-header-title {
+    font-family: 'Montserrat', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: #fff;
+    letter-spacing: 0.06em;
+    text-shadow: 0 3px 12px rgba(44, 62, 80, 0.18), 0 1.5px 4px rgba(161, 140, 209, 0.18);
+    margin-bottom: 0;
+    filter: brightness(1.15) saturate(1.2);
+}
+
+.section-header .bi {
+    font-size: 1.3rem;
+    color: #fff;
+    filter: drop-shadow(0 2px 4px rgba(44, 62, 80, 0.14));
+}
+
+/* Footer */
 .footer {
     padding: 1rem 0;
     text-align: center;

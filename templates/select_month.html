@@ -71,7 +71,7 @@
     </div>
 </div>
 
-<!-- Add Month Modal (placeholder for future implementation) -->
+<!-- Add Month Modal -->
 <div class="modal fade" id="addMonthModal" tabindex="-1" aria-labelledby="addMonthModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -80,7 +80,46 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p class="text-center text-muted">This feature will be implemented in a future update.</p>
+        {% if month_error %}
+        <div class="alert alert-danger">
+          {{ month_error }}
+        </div>
+        {% endif %}
+        <form action="{{ url_for('month_routes.add_month') }}" method="POST">
+          <div class="mb-3">
+            <label for="month" class="form-label">Month</label>
+            <select class="form-select" id="month" name="month" required>
+              <option value="" disabled selected>Select month</option>
+              <option value="1">January</option>
+              <option value="2">February</option>
+              <option value="3">March</option>
+              <option value="4">April</option>
+              <option value="5">May</option>
+              <option value="6">June</option>
+              <option value="7">July</option>
+              <option value="8">August</option>
+              <option value="9">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="year" class="form-label">Year</label>
+            <input type="number" class="form-control" id="year" name="year" min="2020" max="2050" value="{{ current_year }}" required>
+          </div>
+          <div class="mb-3">
+            <label for="starting_bank_value" class="form-label">Starting Bank Value ($)</label>
+            <input type="number" class="form-control" id="starting_bank_value" name="starting_bank_value" step="0.01" min="0" value="0.00" required>
+          </div>
+          <div class="mb-3">
+            <label for="monthly_income" class="form-label">Monthly Income ($)</label>
+            <input type="number" class="form-control" id="monthly_income" name="monthly_income" step="0.01" min="0" value="0.00" required>
+          </div>
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-success">Add Month</button>
+          </div>
+        </form>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

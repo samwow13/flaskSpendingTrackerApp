@@ -6,14 +6,61 @@
 {{ super() }}
 <!-- Add Chart.js with defer to ensure it loads after DOM is ready -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" defer></script>
+<style>
+    /* Custom styles for collapsible cards */
+    .card-header[role="button"] {
+        cursor: pointer;
+    }
+    .card-header[role="button"]:hover {
+        background-color: rgba(0,0,0,0.03);
+    }
+    .card-header .bi-chevron-down {
+        transition: transform 0.3s ease;
+    }
+    .collapse:not(.show) + .card-header .bi-chevron-down,
+    .collapsed .bi-chevron-down {
+        transform: rotate(-90deg);
+    }
+</style>
 {% endblock %}
 
+
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <h1>Expenses for {{ "%02d"|format(month_data['month']) }}/{{ month_data['year'] }}</h1>
-            <div>
+<div class="container-fluid px-4 mb-4">
+    <div class="row">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap">
+            <div class="card shadow-sm mb-3" style="background: linear-gradient(90deg, #6c47de 0%, #8f5ff7 100%); border-radius: 1rem;">
+    <div class="card-body py-3">
+        <form action="{{ url_for('expense_routes.view_expenses') }}" method="GET" id="monthForm" class="mb-0">
+            <div class="input-group input-group-lg">
+                <span class="input-group-text bg-white border-0" style="border-top-left-radius: 0.75rem; border-bottom-left-radius: 0.75rem;"><i class="bi bi-calendar3 text-primary"></i></span>
+                <select class="form-select form-select-lg border-0" name="month_id" id="month_id" style="max-width: 320px; font-size: 1.5rem; padding: 0.75rem 1rem; border-top-right-radius: 0.75rem; border-bottom-right-radius: 0.75rem;" onchange="this.form.submit()">
+    {% for month in all_months %}
+        <option value="{{ month.id }}" {% if month.id == month_data.id %}selected{% endif %}>
+            {{ "%02d"|format(month.month) }}/{{ month.year }}
+        </option>
+    {% endfor %}
+</select>
+{% set month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] %}
+<span class="input-group-text bg-transparent border-0 ps-3" style="font-size: 1.3rem; color: #fff; font-weight: 600; text-shadow: 0 1px 8px #6c47de;">
+    {{ month_names[month_data['month']] }}
+</span>
+            </div>
+        </form>
+    </div>
+</div>
+            <div class="mt-3 mt-md-0">
+                <button type="button" class="btn btn-outline-primary me-2 position-relative" data-bs-toggle="modal" data-bs-target="#filtersModal">
+                    <i class="bi bi-funnel me-1"></i> Filters
+                    {% if expense_type_filter != 'all' or sort_by != 'date' or sort_order != 'desc' %}
+                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                            <span class="visually-hidden">Filters applied</span>
+                        </span>
+                    {% endif %}
+                </button>
+                <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                    <i class="bi bi-plus-circle me-1"></i> Add New Expense
+                </button>
                 <a href="{{ url_for('index') }}" class="btn btn-secondary">
                     <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
                 </a>
@@ -23,184 +70,177 @@
     </div>
 </div>
 
-<!-- Month Selector and Filters -->
-<div class="row mb-4">
-    <div class="col-md-4 mb-3 mb-md-0">
-        <div class="card card-custom bg-light shadow-sm">
-            <div class="card-header">
-                <h5 class="mb-0">Select Month</h5>
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('expense_routes.view_expenses') }}" method="GET" id="monthForm">
-                    <select class="form-select" name="month_id" id="month_id" onchange="this.form.submit()">
-                        {% for month in all_months %}
-                            <option value="{{ month.id }}" {% if month.id == month_data.id %}selected{% endif %}>
-                                {{ "%02d"|format(month.month) }}/{{ month.year }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </form>
-            </div>
-        </div>
+<!-- Filters Modal -->
+<div class="modal fade" id="filtersModal" tabindex="-1" aria-labelledby="filtersModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="filtersModalLabel">Filters</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form action="{{ url_for('expense_routes.view_expenses') }}" method="GET" id="filterForm">
+          <input type="hidden" name="month_id" value="{{ month_data.id }}">
+          <div class="mb-3">
+            <label for="expense_type_id" class="form-label">Expense Type</label>
+            <select class="form-select" id="expense_type_id" name="expense_type_id">
+              <option value="all" {% if expense_type_filter == 'all' %}selected{% endif %}>All Types</option>
+              {% for type in expense_types %}
+                <option value="{{ type.id }}" {% if expense_type_filter|string == type.id|string %}selected{% endif %}>{{ type.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="sort_by" class="form-label">Sort By</label>
+            <select class="form-select" id="sort_by" name="sort_by">
+              <option value="date" {% if sort_by == 'date' %}selected{% endif %}>Date</option>
+              <option value="amount" {% if sort_by == 'amount' %}selected{% endif %}>Amount</option>
+              <option value="expense_type" {% if sort_by == 'expense_type' %}selected{% endif %}>Expense Type</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="sort_order" class="form-label">Order</label>
+            <select class="form-select" id="sort_order" name="sort_order">
+              <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+              <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
+            </select>
+          </div>
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-filter me-1"></i> Apply Filters
+            </button>
+            <a href="{{ url_for('expense_routes.view_expenses', month_id=month_data.id) }}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-circle me-1"></i> Clear Filters
+            </a>
+          </div>
+        </form>
+      </div>
     </div>
-    
-    <div class="col-md-8">
-        <div class="card card-custom bg-light shadow-sm">
-            <div class="card-header">
-                <h5 class="mb-0">Filters</h5>
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('expense_routes.view_expenses') }}" method="GET" class="row g-3" id="filterForm">
-                    <input type="hidden" name="month_id" value="{{ month_data.id }}">
-                    
-                    <div class="col-md-4">
-                        <label for="expense_type_id" class="form-label">Expense Type</label>
-                        <select class="form-select" id="expense_type_id" name="expense_type_id">
-                            <option value="all" {% if expense_type_filter == 'all' %}selected{% endif %}>All Types</option>
-                            {% for type in expense_types %}
-                                <option value="{{ type.id }}" {% if expense_type_filter|string == type.id|string %}selected{% endif %}>
-                                    {{ type.name }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-4">
-                        <label for="sort_by" class="form-label">Sort By</label>
-                        <select class="form-select" id="sort_by" name="sort_by">
-                            <option value="date" {% if sort_by == 'date' %}selected{% endif %}>Date</option>
-                            <option value="amount" {% if sort_by == 'amount' %}selected{% endif %}>Amount</option>
-                            <option value="expense_type" {% if sort_by == 'expense_type' %}selected{% endif %}>Expense Type</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-4">
-                        <label for="sort_order" class="form-label">Order</label>
-                        <select class="form-select" id="sort_order" name="sort_order">
-                            <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
-                            <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-12 text-end">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-filter me-1"></i> Apply Filters
-                        </button>
-                        <a href="{{ url_for('expense_routes.view_expenses', month_id=month_data.id) }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-x-circle me-1"></i> Clear Filters
-                        </a>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+  </div>
 </div>
 
-<!-- Month Summary -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card card-custom bg-light shadow-sm">
-            <div class="card-header">
-                <h5 class="mb-0">Month Summary</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 mb-3 mb-md-0">
-                        <div class="card bg-success-subtle">
-                            <div class="card-body text-center">
-                                <h6 class="card-title">Starting Balance</h6>
-                                <p class="card-text h4">${{ month_data['starting_bank_value']|round(2) }}</p>
+
+<!-- Split View: Main Content with Sidebar -->
+<div class="container-fluid px-4 mb-4">
+    <div class="row gx-0">
+        <div class="col-12">
+            <!-- Month Summary -->
+            <div class="card card-custom bg-light shadow-sm mb-4">
+                <div class="card-header section-header">
+    <h5 class="section-header-title">Month Summary</h5>
+</div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Left: Stacked Monthly Income & Ending Balance -->
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="card card-monthly-income mb-3">
+    <div class="card-body">
+        <h5 class="section-header-title">Monthly Income</h5>
+        <p class="card-text h3">${{ "%.2f"|format(month_data['monthly_income']) }}</p>
+    </div>
+</div>
+<div class="card card-total-expenses mb-3">
+    <div class="card-body">
+        <h5 class="section-header-title">Total Expenses</h5>
+        <p class="card-text h3 mb-0">${{ "%.2f"|format(total_amount) }}</p>
+    </div>
+</div>
+<div class="card card-ending-balance mb-3 bg-success text-white shadow-sm" style="border-radius: 0.75rem;">
+    <div class="card-body">
+        <h5 class="section-header-title">Ending Balance</h5>
+        <p class="card-text h3 mb-0">${{ (month_data['starting_bank_value'] + month_data['monthly_income'] - total_amount)|round(2) }}</p>
+    </div>
+</div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-3 mb-3 mb-md-0">
-                        <div class="card bg-info-subtle">
-                            <div class="card-body text-center">
-                                <h6 class="card-title">Monthly Income</h6>
-                                <p class="card-text h4">${{ month_data['monthly_income']|round(2) }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3 mb-3 mb-md-0">
-                        <div class="card bg-danger-subtle">
-                            <div class="card-body text-center">
-                                <h6 class="card-title">Total Expenses</h6>
-                                <p class="card-text h4">${{ total_amount|round(2) }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-primary-subtle">
-                            <div class="card-body text-center">
-                                <h6 class="card-title">Remaining Balance</h6>
-                                <p class="card-text h4">${{ (month_data['starting_bank_value'] + month_data['monthly_income'] - total_amount)|round(2) }}</p>
+                        <!-- Right: Pie Chart -->
+                        <div class="col-md-6 d-flex align-items-center justify-content-center">
+                            <div class="w-100">
+                                <div class="card card-custom bg-light shadow-sm h-100">
+                                    <div class="card-header section-header">
+    <h5 class="section-header-title">Expense Distribution by Type</h5>
+</div>
+                                    <div class="card-body">
+                                        {% if expenses %}
+                                        <div class="chart-container" style="position: relative; height:260px;">
+                                            <canvas id="expenseTypeChart"></canvas>
+                                        </div>
+                                        {% else %}
+                                        <div class="alert alert-info">
+                                            <i class="bi bi-info-circle me-2"></i> No data available for chart.
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Split View: Expenses Table and Charts -->
-<div class="row">
-    <!-- Left Column: Expense List -->
-    <div class="col-lg-7">
-        <div class="card card-custom bg-light shadow-sm">
-            <div class="card-header">
-                <h5 class="mb-0">Expense List</h5>
-            </div>
+        <!-- Expenses Table -->
+        <div class="container-fluid px-0">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card card-custom bg-light shadow-sm">
+                        <div class="card-header section-header">
+    <h5 class="section-header-title">Expense List</h5>
+</div>
             <div class="card-body">
                 {% if expenses %}
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover table-sm table-bordered expense-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Date</th>
-                                    <th>Description</th>
-                                    <th>Type</th>
-                                    <th>Amount</th>
-                                    <th>Recurring</th>
-                                    <th>Actions</th>
+                                    <th class="text-center align-middle">Date</th>
+<th class="text-center align-middle">Description</th>
+<th class="text-center align-middle">Type</th>
+<th class="text-center align-middle">Amount</th>
+<th class="text-center align-middle">Recurring</th>
+<th class="text-center align-middle">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for expense in expenses %}
-                                    <tr>
-                                        <td>{{ expense.date }}</td>
-                                        <td>{{ expense.description or 'N/A' }}</td>
-                                        <td>
-                                            <span class="badge bg-secondary">{{ expense.expense_type_name }}</span>
-                                        </td>
-                                        <td class="text-end">${{ expense.amount|round(2) }}</td>
-                                        <td>
-                                            {% if expense.is_recurring %}
-                                                <span class="badge bg-info">Yes (Day {{ expense.recurring_day }})</span>
-                                            {% else %}
-                                                <span class="badge bg-light text-dark">No</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm" role="group">
-                                                <button type="button" class="btn btn-outline-primary" title="Edit">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-danger" title="Delete">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
+                                    <tr class="{% if loop.index is even %}alt-row{% endif %} align-middle">
+                                        <td class="text-center align-middle">{{ expense.date }}</td>
+                                        <td class="text-center align-middle">{{ expense.description or 'N/A' }}</td>
+                                        <td class="text-center align-middle">
+    <span class="badge bg-secondary">{{ expense.expense_type_name }}</span>
+</td>
+                                        <td class="text-center align-middle">${{ expense.amount|round(2) }}</td>
+                                        <td class="text-center align-middle">
+    {% if expense.is_recurring %}
+        <span class="badge bg-info">Yes (Day {{ expense.recurring_day }})</span>
+    {% else %}
+        <span class="badge bg-light text-dark">No</span>
+    {% endif %}
+</td>
+                                        <td class="actions-cell">
+    <div class="btn-group btn-group-sm align-middle" role="group">
+                                                <button type="button" class="btn btn-outline-primary btn-action-sm edit-expense-btn" title="Edit"
+    data-id="{{ expense.id }}"
+    data-date="{{ expense.date }}"
+    data-amount="{{ expense.amount }}"
+    data-description="{{ expense.description|replace('"', '&quot;')|replace("'", '&apos;') }}"
+    data-expense-type-id="{{ expense.expense_type_id }}"
+    data-is-recurring="{{ expense.is_recurring|lower }}"
+    data-recurring-day="{{ expense.recurring_day or 0 }}">
+    <i class="bi bi-pencil"></i>
+</button>
+                                                <button type="button" class="btn btn-outline-danger btn-action-sm delete-expense-btn" title="Delete"
+    data-id="{{ expense.id }}"
+    data-description="{{ expense.description|replace('"', '&quot;')|replace("'", '&apos;') }}">
+    <i class="bi bi-trash"></i>
+</button>
+<!-- Custom .btn-action-sm class shrinks height for action buttons -->
                                             </div>
                                         </td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
-                            <tfoot>
-                                <tr class="table-light fw-bold">
-                                    <td colspan="3" class="text-end">Total:</td>
-                                    <td class="text-end">${{ total_amount|round(2) }}</td>
-                                    <td colspan="2"></td>
-                                </tr>
-                            </tfoot>
                         </table>
                     </div>
                 {% else %}
@@ -210,28 +250,9 @@
                 {% endif %}
             </div>
         </div>
-    </div>
-    
-    <!-- Right Column: Charts -->
-    <div class="col-lg-5">
-        <!-- Expense Distribution by Type Chart -->
-        <div class="card card-custom bg-light shadow-sm">
-            <div class="card-header">
-                <h5 class="mb-0">Expense Distribution by Type</h5>
             </div>
-            <div class="card-body">
-                {% if expenses %}
-                <div class="chart-container" style="position: relative; height:400px;">
-                    <canvas id="expenseTypeChart"></canvas>
-                </div>
-                {% else %}
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle me-2"></i> No data available for chart.
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
+            
+
 </div>
 
 <!-- Add Expense link is now in the header -->
@@ -436,5 +457,277 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Hidden inputs for modal control -->
+<input type="hidden" id="show_modal" value="{{ 'true' if error or show_modal else 'false' }}">
+
+<!-- Add Expense Modal -->
+<div class="modal fade" id="addExpenseModal" tabindex="-1" aria-labelledby="addExpenseModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="section-header d-flex align-items-center justify-content-between w-100" style="border-radius: 0.75rem 0.75rem 0 0;">
+  <span class="section-header-title mb-0" id="addExpenseModalLabel">Add New Expense</span>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+      <div class="modal-body">
+        {% if error %}
+            <div class="alert alert-danger" role="alert">
+                {{ error }}
+            </div>
+        {% endif %}
+
+        <form id="addExpenseForm" method="POST" action="{{ url_for('add_expense') }}">
+            <div class="mb-3">
+                <label for="amount" class="form-label">Amount ($)</label>
+                <input type="number" step="0.01" class="form-control" id="amount" name="amount" required>
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="expense_type_id" class="form-label">Expense Type</label>
+                <select class="form-select" id="expense_type_id" name="expense_type_id" required>
+                    <option value="" disabled selected>Select an expense type</option>
+                    {% for type in expense_types %}
+                        <option value="{{ type.id }}">{{ type.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="date" class="form-label">Date</label>
+                <input type="date" class="form-control" id="date" name="date" required>
+            </div>
+
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="is_recurring" name="is_recurring" onchange="toggleRecurringDay()">
+                <label class="form-check-label" for="is_recurring">
+                    Is this a recurring expense?
+                </label>
+            </div>
+
+            <div class="mb-3" id="recurring_day_div" style="display: none;">
+                <label for="recurring_day" class="form-label">Recurring Day of Month (1-31)</label>
+                <input type="number" class="form-control" id="recurring_day" name="recurring_day" min="1" max="31">
+            </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" form="addExpenseForm" class="btn btn-primary">Add Expense</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Function to toggle recurring day field visibility in add expense modal
+function toggleRecurringDay() {
+    const isRecurring = document.getElementById('is_recurring').checked;
+    const recurringDayDiv = document.getElementById('recurring_day_div');
+    recurringDayDiv.style.display = isRecurring ? 'block' : 'none';
+}
+
+// Function to toggle recurring day field visibility in edit expense modal
+function toggleEditRecurringDay() {
+    const isRecurring = document.getElementById('edit_is_recurring').checked;
+    const recurringDayDiv = document.getElementById('edit_recurring_day_div');
+    recurringDayDiv.style.display = isRecurring ? 'block' : 'none';
+}
+
+// Function to confirm expense deletion
+function confirmDeleteExpense(id, description) {
+    // Set the expense ID in the form
+    document.getElementById('delete_expense_id').value = id;
+    
+    // Set the description in the confirmation message
+    const descriptionElement = document.getElementById('deleteExpenseDescription');
+    if (description) {
+        descriptionElement.textContent = description;
+    } else {
+        descriptionElement.textContent = 'Expense #' + id;
+    }
+    
+    // Open the delete confirmation modal
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteExpenseModal'));
+    deleteModal.show();
+}
+
+// Function to open and populate the edit expense modal
+function openEditModal(id, date, amount, description, expenseTypeId, isRecurring, recurringDay) {
+    // Set values in the form
+    document.getElementById('edit_expense_id').value = id;
+    document.getElementById('edit_date').value = date;
+    document.getElementById('edit_amount').value = amount;
+    document.getElementById('edit_description').value = description;
+    document.getElementById('edit_expense_type_id').value = expenseTypeId;
+    document.getElementById('edit_is_recurring').checked = isRecurring === true || isRecurring === 'true';
+    
+    // Handle recurring day field
+    const recurringDayDiv = document.getElementById('edit_recurring_day_div');
+    if (isRecurring) {
+        recurringDayDiv.style.display = 'block';
+        document.getElementById('edit_recurring_day').value = recurringDay;
+    } else {
+        recurringDayDiv.style.display = 'none';
+    }
+    
+    // Open the modal
+    const editModal = new bootstrap.Modal(document.getElementById('editExpenseModal'));
+    editModal.show();
+}
+
+// Initialize everything when the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Set today's date as default when the add expense modal is shown
+    const addExpenseModal = document.getElementById('addExpenseModal');
+    if (addExpenseModal) {
+        addExpenseModal.addEventListener('shown.bs.modal', function() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            document.getElementById('date').value = `${year}-${month}-${day}`;
+        });
+    }
+    
+    // Automatically show modal if there's an error or show_modal flag is set
+    const showModalInput = document.getElementById('show_modal');
+    if (showModalInput && showModalInput.value === 'true') {
+        const modal = new bootstrap.Modal(addExpenseModal);
+        modal.show();
+    }
+    
+    // Add event listeners for edit buttons
+    document.querySelectorAll('.edit-expense-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const date = this.dataset.date;
+            const amount = this.dataset.amount;
+            const description = this.dataset.description;
+            const expenseTypeId = this.dataset.expenseTypeId;
+            const isRecurring = this.dataset.isRecurring === 'true';
+            const recurringDay = this.dataset.recurringDay;
+            
+            openEditModal(id, date, amount, description, expenseTypeId, isRecurring, recurringDay);
+        });
+    });
+    
+    // Add event listeners for delete buttons
+    document.querySelectorAll('.delete-expense-btn').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const description = this.dataset.description;
+            
+            confirmDeleteExpense(id, description);
+        });
+    });
+});
+</script>
+
+<!-- Edit Expense Modal -->
+<div class="modal fade" id="editExpenseModal" tabindex="-1" aria-labelledby="editExpenseModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="section-header d-flex align-items-center justify-content-between w-100" style="border-radius: 0.75rem 0.75rem 0 0;">
+  <span class="section-header-title mb-0" id="editExpenseModalLabel">Edit Expense</span>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+      <div class="modal-body">
+        {% if edit_error %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                {{ edit_error }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endif %}
+
+        <form id="editExpenseForm" method="POST" action="{{ url_for('expense_routes.edit_expense') }}">
+            <input type="hidden" id="edit_expense_id" name="expense_id" value="">
+            <input type="hidden" name="month_id" value="{{ month_data.id }}">
+            
+            <div class="row g-3">
+                <div class="col-md-6 mb-3">
+                    <label for="edit_amount" class="form-label fw-medium">Amount ($)</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-currency-dollar"></i></span>
+                        <input type="number" step="0.01" class="form-control form-control-lg" id="edit_amount" name="amount" required>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="edit_date" class="form-label fw-medium">Date</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-calendar-date"></i></span>
+                        <input type="date" class="form-control form-control-lg" id="edit_date" name="date" required>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="edit_description" class="form-label fw-medium">Description</label>
+                <textarea class="form-control" id="edit_description" name="description" rows="2" placeholder="What was this expense for?"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label for="edit_expense_type_id" class="form-label fw-medium">Expense Category</label>
+                <select class="form-select form-select-lg" id="edit_expense_type_id" name="expense_type_id" required>
+                    {% for type in expense_types %}
+                        <option value="{{ type.id }}">{{ type.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="edit_is_recurring" name="is_recurring" onchange="toggleEditRecurringDay()">
+                <label class="form-check-label" for="edit_is_recurring">
+                    This is a recurring expense
+                </label>
+            </div>
+
+            <div class="mb-3" id="edit_recurring_day_div" style="display: none;">
+                <label for="edit_recurring_day" class="form-label fw-medium">Recurring Day of Month</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-repeat"></i></span>
+                    <input type="number" class="form-control" id="edit_recurring_day" name="recurring_day" min="1" max="31" placeholder="Day of month (1-31)">
+                </div>
+                <div class="form-text">Enter the day of month (1-31) when this expense recurs</div>
+            </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" form="editExpenseForm" class="btn btn-primary px-4">Update Expense</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteExpenseModal" tabindex="-1" aria-labelledby="deleteExpenseModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="deleteExpenseModalLabel">Confirm Delete</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete this expense?</p>
+        <p id="deleteExpenseDescription" class="fw-bold"></p>
+        <form id="deleteExpenseForm" method="POST" action="{{ url_for('expense_routes.delete_expense') }}">
+          <input type="hidden" id="delete_expense_id" name="expense_id" value="">
+          <input type="hidden" name="month_id" value="{{ month_data.id }}">
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" form="deleteExpenseForm" class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 {% endblock %}

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, redirect, url_for, render_template, flash
+from flask import Blueprint, request, redirect, url_for, render_template, flash, session
 import sqlite3
 import os
 
@@ -84,14 +84,87 @@ def list_months():
     conn = get_db_connection()
     months = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC').fetchall()
     
-    # Get current month for highlighting in the UI
-    current_month = conn.execute('SELECT id FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
-    current_month_id = current_month['id'] if current_month else None
+    # Get current month from session or default to most recent
+    current_month_id = None
+    if 'current_month_id' in session:
+        current_month_id = session['current_month_id']
+    else:
+        # Get the most recent month if no session data
+        current_month = conn.execute('SELECT id FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+        if current_month:
+            current_month_id = current_month['id']
+            # Store in session
+            session['current_month_id'] = current_month_id
     
     conn.close()
     
     # Return a dedicated months selection page
     return render_template('select_month.html', months=months, current_month_id=current_month_id)
+
+@month_routes.route('/add_month', methods=['POST'])
+def add_month():
+    """Add a new month to track"""
+    conn = get_db_connection()
+    
+    try:
+        # Get form data
+        month = request.form.get('month')
+        year = request.form.get('year')
+        starting_bank_value = request.form.get('starting_bank_value')
+        monthly_income = request.form.get('monthly_income')
+        
+        # Basic validation
+        if not month or not year or not starting_bank_value or not monthly_income:
+            raise ValueError("All fields are required")
+            
+        # Check if month/year combination already exists
+        existing = conn.execute(
+            'SELECT id FROM months WHERE month = ? AND year = ?', 
+            (month, year)
+        ).fetchone()
+        
+        if existing:
+            raise ValueError(f"A record for this month/year combination already exists")
+        
+        # Insert the new month record
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO months (month, year, starting_bank_value, monthly_income)
+            VALUES (?, ?, ?, ?)
+        ''', (month, year, starting_bank_value, monthly_income))
+        
+        conn.commit()
+        new_month_id = cursor.lastrowid
+        
+        # Store the new month in session and redirect to index
+        session['current_month_id'] = new_month_id
+        conn.close()
+        return redirect(url_for('index', current_month_id=new_month_id))
+        
+    except ValueError as e:
+        # Handle validation errors
+        months = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC').fetchall()
+        current_month = conn.execute('SELECT id FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+        current_month_id = current_month['id'] if current_month else None
+        
+        conn.close()
+        # Return to select_month with error
+        return render_template('select_month.html', 
+                              months=months, 
+                              current_month_id=current_month_id,
+                              month_error=str(e))
+    
+    except sqlite3.Error as e:
+        # Handle database errors
+        months = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC').fetchall()
+        current_month = conn.execute('SELECT id FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+        current_month_id = current_month['id'] if current_month else None
+        
+        conn.close()
+        return render_template('select_month.html', 
+                              months=months, 
+                              current_month_id=current_month_id,
+                              month_error=f"Database error: {e}")
 
 @month_routes.route('/set_current_month/<int:month_id>', methods=['GET'])
 def set_current_month(month_id):
@@ -106,10 +179,8 @@ def set_current_month(month_id):
         conn.close()
         return redirect(url_for('index'))
     
-    # In a real application with user accounts, we would store the current month preference
-    # in the user's profile or session. For this app, we'll use a simple approach:
-    # We'll just reorder the months in the database query to make this month appear first.
-    # This is a simplification - in a production app, you might want to store this in a user preferences table.
+    # Store the selected month in the session
+    session['current_month_id'] = month_id
     
     conn.close()
     

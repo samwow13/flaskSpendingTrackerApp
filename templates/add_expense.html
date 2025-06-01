@@ -5,56 +5,90 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
-        <h1 class="mb-4">Add New Expense</h1>
+        <div class="card card-custom bg-light shadow-sm" style="border-radius: 0.75rem;">
+    <div class="section-header d-flex align-items-center justify-content-between w-100" style="border-radius: 0.75rem 0.75rem 0 0;">
+    <h2 class="section-header-title mb-0">Add New Expense</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+    <div class="card-body p-4">
+                {% if error %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {{ error }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endif %}
 
-        {% if error %}
-            <div class="alert alert-danger" role="alert">
-                {{ error }}
-            </div>
-        {% endif %}
-
-        <form method="POST" action="{{ url_for('add_expense') }}">
-            <div class="mb-3">
-                <label for="amount" class="form-label">Amount ($)</label>
-                <input type="number" step="0.01" class="form-control" id="amount" name="amount">
-            </div>
-
-            <div class="mb-3">
-                <label for="description" class="form-label">Description</label>
-                <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-            </div>
-
-            <div class="mb-3">
-                <label for="expense_type_id" class="form-label">Expense Type</label>
-                <select class="form-select" id="expense_type_id" name="expense_type_id">
-                    <option value="" disabled selected>Select an expense type</option>
-                    {% for type in expense_types %}
-                        <option value="{{ type.id }}">{{ type.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="mb-3">
-                <label for="date" class="form-label">Date</label>
-                <input type="date" class="form-control" id="date" name="date">
-            </div>
-
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" id="is_recurring" name="is_recurring" onchange="toggleRecurringDay()">
-                <label class="form-check-label" for="is_recurring">
-                    Is this a recurring expense?
-                </label>
-            </div>
-
-            <div class="mb-3" id="recurring_day_div" style="display: none;">
-                <label for="recurring_day" class="form-label">Recurring Day of Month (1-31)</label>
-                <input type="number" class="form-control" id="recurring_day" name="recurring_day" min="1" max="31">
-            </div>
-
-            <button type="submit" class="btn btn-primary" onclick="alert('Add Expense button clicked!');">Add Expense</button>
-            <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
-        </form>
+                <form method="POST" action="{{ url_for('add_expense') }}">
+                    <div class="row g-3">
+    <div class="col-md-6 mb-3">
+        <label for="amount" class="form-label fw-medium">Amount ($)</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-currency-dollar"></i></span>
+            <input type="number" step="0.01" class="form-control form-control-lg" id="amount" name="amount" placeholder="0.00" required>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label for="date" class="form-label fw-medium">Date</label>
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-calendar-date"></i></span>
+            <input type="date" class="form-control form-control-lg" id="date" name="date" required>
+        </div>
     </div>
 </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label fw-medium">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="2" placeholder="What was this expense for?"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+    <label for="expense_type_id" class="form-label fw-medium">Expense Category</label>
+    <select class="form-select form-select-lg" id="expense_type_id" name="expense_type_id" required>
+        <option value="" disabled selected>Select a category</option>
+        {% for type in expense_types %}
+            <option value="{{ type.id }}">{{ type.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+                    <div class="form-check form-switch mb-3">
+    <input class="form-check-input" type="checkbox" id="is_recurring" name="is_recurring" onchange="toggleRecurringDay()">
+    <label class="form-check-label" for="is_recurring">
+        This is a recurring expense
+    </label>
+</div>
+
+                    <div class="mb-3" id="recurring_day_div" style="display: none;">
+    <label for="recurring_day" class="form-label fw-medium">Recurring Day of Month</label>
+    <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-repeat"></i></span>
+        <input type="number" class="form-control" id="recurring_day" name="recurring_day" min="1" max="31" placeholder="Day of month (1-31)">
+    </div>
+    <div class="form-text">Enter the day of month (1-31) when this expense recurs</div>
+</div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary px-4">Save Expense</button>
+</div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleRecurringDay() {
+        const recurringDayDiv = document.getElementById('recurring_day_div');
+        const isRecurringChecked = document.getElementById('is_recurring').checked;
+        
+        if (isRecurringChecked) {
+            recurringDayDiv.style.display = 'block';
+        } else {
+            recurringDayDiv.style.display = 'none';
+        }
+    }
+</script>
 
 {% endblock %}

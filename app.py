@@ -1,9 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
 import os
 from datetime import datetime
 
 app = Flask(__name__)
+
+# Set a secret key for session management
+app.secret_key = 'spending_tracker_secret_key'
 
 # Import and register blueprints
 from templateLogic.month_routes import month_routes
@@ -28,8 +31,15 @@ def index():
     # Fetch expense types to display
     expense_types = conn.execute('SELECT * FROM expense_types WHERE is_active = TRUE ORDER BY name').fetchall()
     
-    # Get current_month_id from request args (if provided)
+    # Get current_month_id from request args or session
     current_month_id = request.args.get('current_month_id', None)
+    
+    # If current_month_id is provided in the URL, update the session
+    if current_month_id:
+        session['current_month_id'] = current_month_id
+    # Otherwise, try to get it from the session
+    elif 'current_month_id' in session:
+        current_month_id = session['current_month_id']
     
     # Fetch current month's details based on current_month_id if provided
     if current_month_id:
@@ -37,9 +47,15 @@ def index():
         # If month not found, fall back to default behavior
         if not current_month_data:
             current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+            # Update session with the fallback month id
+            if current_month_data:
+                session['current_month_id'] = current_month_data['id']
     else:
         # Default behavior - get most recent month
         current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+        # Store the default month id in session
+        if current_month_data:
+            session['current_month_id'] = current_month_data['id']
     
     # Fetch 10 most recent expenses with expense type names
     recent_expenses = conn.execute('''
@@ -51,9 +67,18 @@ def index():
         LIMIT 10
     ''').fetchall()
     
+    # Calculate total expenses for the current month
+    total_amount = 0.0
+    if current_month_data:
+        total_amount_row = conn.execute(
+            'SELECT SUM(amount) as total FROM expenses WHERE is_active = TRUE AND strftime("%Y", date) = ? AND strftime("%m", date) = ?',
+            (str(current_month_data['year']), f"{int(current_month_data['month']):02d}")
+        ).fetchone()
+        total_amount = total_amount_row['total'] if total_amount_row['total'] is not None else 0.0
+
     conn.close()
     return render_template('index.html', expense_types=expense_types, current_month=current_month_data, 
-                           recent_expenses=recent_expenses, month_error=None, show_month_modal=False)
+                           recent_expenses=recent_expenses, month_error=None, show_month_modal=False, total_amount=total_amount)
 
 @app.route('/add_expense', methods=['GET', 'POST'])
 def add_expense():

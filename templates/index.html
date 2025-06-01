@@ -5,66 +5,51 @@
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
-        <h1>Dashboard</h1>
+        <div class="dashboard-header card shadow-sm mb-4 p-3" style="background: #6c47de; color: #fff; border-radius: 0.75rem;">
+    <h1 class="mb-0" style="font-weight: 700; font-size: 2.2rem;">Financial Dashboard</h1>
+</div>
         <hr>
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card card-custom bg-light-subtle shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h3 class="h5 mb-0">Quick Actions</h3>
-            </div>
-            <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
-                        <i class="bi bi-plus-circle me-1"></i> Add New Expense
-                    </button>
-                    <a href="{{ url_for('expense_type_routes.manage_expense_types') }}" class="btn btn-secondary">
-                        <i class="bi bi-gear me-1"></i> Manage Expense Types
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div class="row">
     <div class="col-12">
         {% if current_month %}
             <div class="card card-custom bg-light mb-4 shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h2 class="h5 mb-0">Current Focus: {{ "%02d"|format(current_month['month']) }}/{{ current_month['year'] }}</h2>
-                    <div class="d-flex gap-2">
-                        <a href="#" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editMonthModal">
-                            <i class="bi bi-pencil me-1"></i> Edit Month Details
-                        </a>
-                        <a href="{{ url_for('month_routes.list_months') }}" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-calendar me-1"></i> Select Different Month
-                        </a>
-                    </div>
-                </div>
+                <div class="card-header section-header d-flex justify-content-between align-items-center">
+    <h2 class="section-header-title mb-0">
+    {{ ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][current_month['month']-1] }}, {{ current_month['year'] }}
+</h2>
+    <div class="d-flex gap-2">
+        <a href="#" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editMonthModal">
+            <i class="bi bi-pencil me-1"></i> Edit Month Details
+        </a>
+        <a href="{{ url_for('month_routes.list_months') }}" class="btn btn-sm btn-primary">
+            <i class="bi bi-calendar me-1"></i> Select Different Month
+        </a>
+    </div>
+</div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="card bg-success-subtle mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">Starting Bank Value</h5>
-                                    <p class="card-text h3">${{ "%.2f"|format(current_month['starting_bank_value']) }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card bg-info-subtle mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">Monthly Income</h5>
-                                    <p class="card-text h3">${{ "%.2f"|format(current_month['monthly_income']) }}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card card-monthly-income mb-3">
+                <div class="card-body">
+                    <h5 class="section-header-title">Monthly Income</h5>
+                    <p class="card-text h3">${{ "%.2f"|format(current_month['monthly_income']) }}</p>
                 </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card card-total-expenses mb-3">
+                <div class="card-body text-end">
+                    <h5 class="section-header-title">Total Expenses</h5>
+                    <p class="card-text h3 mb-0">${{ "%.2f"|format(total_amount) }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
             </div>
         {% else %}
             <div class="alert alert-warning" role="alert">
@@ -78,31 +63,31 @@
 <div class="row mb-4">
     <div class="col-12">
         <div class="card card-custom bg-light shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h2 class="h5 mb-0">Recent Expenses</h2>
-                <a href="{{ url_for('expense_routes.view_expenses') }}" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-list-ul me-1"></i> View All Expenses
-                </a>
-            </div>
+            <div class="card-header section-header d-flex justify-content-between align-items-center">
+    <h2 class="section-header-title mb-0">Recent Expenses</h2>
+    <a href="{{ url_for('expense_routes.view_expenses') }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-list-ul me-1"></i> View All Expenses
+    </a>
+</div>
             <div class="card-body">
                 {% if recent_expenses %}
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover table-bordered">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Date</th>
-                                    <th>Type</th>
-                                    <th>Description</th>
-                                    <th class="text-end">Amount</th>
+                                    <th style="width:10%">Date</th>
+                                    <th style="width:15%">Type</th>
+                                    <th style="width:auto">Description</th>
+                                    <th class="text-end" style="width:10%">Amount</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for expense in recent_expenses %}
-                                    <tr>
-                                        <td>{{ expense.date }}</td>
-                                        <td>{{ expense.expense_type_name }}</td>
-                                        <td>{{ expense.description|default('', true) }}</td>
-                                        <td class="text-end fw-bold">$<span class="{% if expense.amount > 100 %}text-danger{% endif %}">{{ "%.2f"|format(expense.amount) }}</span></td>
+                                {% for expense in recent_expenses[:10] %}
+                                    <tr class="{% if loop.index is even %}alt-row{% endif %}">
+                                        <td style="width:10%">{{ expense.date }}</td>
+                                        <td style="width:15%">{{ expense.expense_type_name }}</td>
+                                        <td style="width:auto">{{ expense.description|default('', true) }}</td>
+                                        <td class="text-end fw-bold" style="width:10%">$<span class="{% if expense.amount > 100 %}text-danger{% endif %}">{{ "%.2f"|format(expense.amount) }}</span></td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
