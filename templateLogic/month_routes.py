@@ -24,11 +24,10 @@ def update_month():
         month_id = request.form.get('month_id')
         month = request.form.get('month')
         year = request.form.get('year')
-        starting_bank_value = request.form.get('starting_bank_value')
         monthly_income = request.form.get('monthly_income')
         
         # Basic validation
-        if not month or not year or not starting_bank_value or not monthly_income:
+        if not month or not year or not monthly_income:
             raise ValueError("All fields are required")
             
         # Check if month/year combination already exists (for a different month_id)
@@ -43,9 +42,9 @@ def update_month():
         # Update the month record
         conn.execute('''
             UPDATE months 
-            SET month = ?, year = ?, starting_bank_value = ?, monthly_income = ? 
+            SET month = ?, year = ?, monthly_income = ? 
             WHERE id = ?
-        ''', (month, year, starting_bank_value, monthly_income, month_id))
+        ''', (month, year, monthly_income, month_id))
         
         conn.commit()
         
@@ -57,23 +56,65 @@ def update_month():
         expense_types = conn.execute('SELECT * FROM expense_types WHERE is_active = TRUE ORDER BY name').fetchall()
         current_month_data = conn.execute('SELECT * FROM months WHERE id = ?', (month_id,)).fetchone()
         
+        # Calculate total expenses for the current month
+        total_amount = 0.0
+        if current_month_data:
+            total_amount_row = conn.execute(
+                'SELECT SUM(amount) as total FROM expenses WHERE is_active = TRUE AND strftime("%Y", date) = ? AND strftime("%m", date) = ?',
+                (str(current_month_data['year']), f"{int(current_month_data['month']):02d}")
+            ).fetchone()
+            total_amount = total_amount_row['total'] if total_amount_row['total'] is not None else 0.0
+        
+        # Fetch recent expenses for the template
+        recent_expenses = conn.execute('''
+            SELECT e.id, e.amount, e.description, e.date, et.name as expense_type_name, e.created_at
+            FROM expenses e
+            JOIN expense_types et ON e.expense_type_id = et.id
+            WHERE e.is_active = TRUE
+            ORDER BY e.created_at DESC
+            LIMIT 10
+        ''').fetchall()
+        
         # Return to index with error in the month modal
         return render_template('index.html', 
                               expense_types=expense_types, 
                               current_month=current_month_data, 
                               month_error=str(e),
-                              show_month_modal=True)
+                              show_month_modal=True,
+                              total_amount=total_amount,
+                              recent_expenses=recent_expenses)
     
     except sqlite3.Error as e:
         # Handle database errors
         expense_types = conn.execute('SELECT * FROM expense_types WHERE is_active = TRUE ORDER BY name').fetchall()
         current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
         
+        # Calculate total expenses for the current month
+        total_amount = 0.0
+        if current_month_data:
+            total_amount_row = conn.execute(
+                'SELECT SUM(amount) as total FROM expenses WHERE is_active = TRUE AND strftime("%Y", date) = ? AND strftime("%m", date) = ?',
+                (str(current_month_data['year']), f"{int(current_month_data['month']):02d}")
+            ).fetchone()
+            total_amount = total_amount_row['total'] if total_amount_row['total'] is not None else 0.0
+        
+        # Fetch recent expenses for the template
+        recent_expenses = conn.execute('''
+            SELECT e.id, e.amount, e.description, e.date, et.name as expense_type_name, e.created_at
+            FROM expenses e
+            JOIN expense_types et ON e.expense_type_id = et.id
+            WHERE e.is_active = TRUE
+            ORDER BY e.created_at DESC
+            LIMIT 10
+        ''').fetchall()
+        
         return render_template('index.html', 
                               expense_types=expense_types, 
                               current_month=current_month_data, 
                               month_error=f"Database error: {e}",
-                              show_month_modal=True)
+                              show_month_modal=True,
+                              total_amount=total_amount,
+                              recent_expenses=recent_expenses)
     
     finally:
         conn.close()
@@ -83,6 +124,13 @@ def list_months():
     """List all months"""
     conn = get_db_connection()
     months = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC').fetchall()
+    # For each month, calculate total expenses
+    months_with_expenses = []
+    for month in months:
+        total_expenses = conn.execute('SELECT IFNULL(SUM(amount), 0) as total FROM expenses WHERE strftime("%Y", date) = ? AND strftime("%m", date) = ?', (str(month['year']), str(month['month']).zfill(2))).fetchone()['total']
+        month_dict = dict(month)
+        month_dict['total_expenses'] = total_expenses
+        months_with_expenses.append(month_dict)
     
     # Get current month from session or default to most recent
     current_month_id = None
@@ -96,10 +144,16 @@ def list_months():
             # Store in session
             session['current_month_id'] = current_month_id
     
+    # Get latest monthly income for pre-filling the form
+    latest_monthly_income = None
+    latest_month = conn.execute('SELECT monthly_income FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+    if latest_month:
+        latest_monthly_income = latest_month['monthly_income']
+    
     conn.close()
     
     # Return a dedicated months selection page
-    return render_template('select_month.html', months=months, current_month_id=current_month_id)
+    return render_template('select_month.html', months=months_with_expenses, current_month_id=current_month_id, latest_monthly_income=latest_monthly_income)
 
 @month_routes.route('/add_month', methods=['POST'])
 def add_month():
@@ -110,11 +164,10 @@ def add_month():
         # Get form data
         month = request.form.get('month')
         year = request.form.get('year')
-        starting_bank_value = request.form.get('starting_bank_value')
         monthly_income = request.form.get('monthly_income')
         
         # Basic validation
-        if not month or not year or not starting_bank_value or not monthly_income:
+        if not month or not year or not monthly_income:
             raise ValueError("All fields are required")
             
         # Check if month/year combination already exists
@@ -129,9 +182,9 @@ def add_month():
         # Insert the new month record
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO months (month, year, starting_bank_value, monthly_income)
-            VALUES (?, ?, ?, ?)
-        ''', (month, year, starting_bank_value, monthly_income))
+            INSERT INTO months (month, year, monthly_income)
+            VALUES (?, ?, ?)
+        ''', (month, year, monthly_income))
         
         conn.commit()
         new_month_id = cursor.lastrowid

@@ -56,10 +56,22 @@ def view_expenses():
     sort_by = request.args.get('sort_by', 'date')
     sort_order = request.args.get('sort_order', 'desc')
     
+    # Pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = 10  # Show 10 expenses per page
+    
     # Build the query based on filters
     query = '''
         SELECT e.id, e.amount, e.description, e.date, e.is_recurring, e.recurring_day,
                et.name as expense_type_name, et.id as expense_type_id
+        FROM expenses e
+        JOIN expense_types et ON e.expense_type_id = et.id
+        WHERE e.is_active = TRUE
+    '''
+    
+    # Build the count query to get total number of expenses
+    count_query = '''
+        SELECT COUNT(*) as total
         FROM expenses e
         JOIN expense_types et ON e.expense_type_id = et.id
         WHERE e.is_active = TRUE
@@ -77,11 +89,13 @@ def view_expenses():
         end_date = f"{month_data['year']}-{month_data['month'] + 1:02d}-01"
     
     query += " AND e.date >= ? AND e.date < ?"
+    count_query += " AND e.date >= ? AND e.date < ?"
     query_params.extend([start_date, end_date])
     
     # Add expense type filter if specified
     if expense_type_filter != 'all':
         query += " AND e.expense_type_id = ?"
+        count_query += " AND e.expense_type_id = ?"
         query_params.append(expense_type_filter)
     
     # Add sorting
@@ -92,11 +106,33 @@ def view_expenses():
     else:  # Default to date
         query += f" ORDER BY e.date {sort_order}"
     
+    # Get total count of expenses matching the filter
+    total_count_result = conn.execute(count_query, query_params).fetchone()
+    total_count = total_count_result['total'] if total_count_result else 0
+    
+    # Calculate total pages
+    total_pages = (total_count + per_page - 1) // per_page  # Ceiling division
+    
+    # Ensure page is within valid range
+    if page < 1:
+        page = 1
+    elif page > total_pages and total_pages > 0:
+        page = total_pages
+    
+    # Add pagination
+    offset = (page - 1) * per_page
+    query += f" LIMIT {per_page} OFFSET {offset}"
+    
     # Execute the query
     expenses = conn.execute(query, query_params).fetchall()
     
-    # Calculate total amount for filtered expenses
-    total_amount = sum(expense['amount'] for expense in expenses)
+    # Get all expenses for chart data and total amount calculation
+    # We need all expenses for the chart, not just the paginated ones
+    chart_query = query.replace(f" LIMIT {per_page} OFFSET {offset}", "")
+    all_expenses = conn.execute(chart_query, query_params).fetchall()
+    
+    # Calculate total amount for filtered expenses (using all expenses, not just paginated ones)
+    total_amount = sum(expense['amount'] for expense in all_expenses)
     
     # Get all available months for the month selector
     all_months = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC').fetchall()
@@ -105,13 +141,17 @@ def view_expenses():
     
     return render_template('view_expenses.html', 
                           expenses=expenses,
+                          all_expenses=all_expenses,  # For chart data
                           month_data=month_data,
                           expense_types=expense_types,
                           all_months=all_months,
                           expense_type_filter=expense_type_filter,
                           sort_by=sort_by,
                           sort_order=sort_order,
-                          total_amount=total_amount)
+                          total_amount=total_amount,
+                          page=page,
+                          per_page=per_page,
+                          total_pages=total_pages)
 
 @expense_routes.route('/edit', methods=['POST'])
 def edit_expense():

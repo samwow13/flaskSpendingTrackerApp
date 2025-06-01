@@ -21,6 +21,25 @@
     .collapsed .bi-chevron-down {
         transform: rotate(-90deg);
     }
+    
+    /* Pagination styles */
+    .pagination .page-link {
+        color: #6c47de;
+        border-color: #e9ecef;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #6c47de;
+        border-color: #6c47de;
+        color: white;
+    }
+    .pagination .page-item.disabled .page-link {
+        color: #6c757d;
+    }
+    .pagination .page-link:hover {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+        color: #5a3cbf;
+    }
 </style>
 {% endblock %}
 
@@ -243,6 +262,42 @@
                             </tbody>
                         </table>
                     </div>
+                    
+                    <!-- Pagination Controls -->
+                    {% if total_pages > 1 %}
+                    <div class="d-flex justify-content-center mt-4">
+                        <nav aria-label="Expense pagination">
+                            <ul class="pagination">
+                                <!-- Previous Page Button -->
+                                <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                                    <a class="page-link" href="{{ url_for('expense_routes.view_expenses', month_id=month_data.id, page=page-1, expense_type_id=expense_type_filter, sort_by=sort_by, sort_order=sort_order) }}" aria-label="Previous">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                                
+                                <!-- Page Numbers -->
+                                {% for p in range(1, total_pages + 1) %}
+                                    {% if p == page %}
+                                        <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                    {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('expense_routes.view_expenses', month_id=month_data.id, page=p, expense_type_id=expense_type_filter, sort_by=sort_by, sort_order=sort_order) }}">{{ p }}</a>
+                                        </li>
+                                    {% elif p == 4 and page > 4 or p == total_pages - 3 and page < total_pages - 3 %}
+                                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                <!-- Next Page Button -->
+                                <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                                    <a class="page-link" href="{{ url_for('expense_routes.view_expenses', month_id=month_data.id, page=page+1, expense_type_id=expense_type_filter, sort_by=sort_by, sort_order=sort_order) }}" aria-label="Next">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                    {% endif %}
                 {% else %}
                     <div class="alert alert-info">
                         <i class="bi bi-info-circle me-2"></i> No expenses found for this month and filter criteria.
@@ -258,11 +313,11 @@
 <!-- Add Expense link is now in the header -->
 
 <!-- Hidden element to store expense data for charts -->
-{% if expenses %}
+{% if all_expenses %}
 <script id="expense-data" type="application/json">
 {
     "expenses": [
-        {% for expense in expenses %}
+        {% for expense in all_expenses %}
             {
                 "date": "{{ expense.date }}",
                 "amount": {{ expense.amount }},

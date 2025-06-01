@@ -149,6 +149,147 @@ def add_expense():
 def inject_current_year():
     return {'current_year': datetime.utcnow().year}
 
+@app.route('/reset_data', methods=['POST'])
+def reset_data():
+    """Reset all data in the database except for expense types"""
+    from flask import jsonify
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Delete data from tables in order to respect foreign key constraints
+        cursor.execute('DELETE FROM recurring_expense_instances')
+        cursor.execute('DELETE FROM expenses')
+        
+        # For months table, we'll keep the current month but reset its values
+        current_date = datetime.now()
+        cursor.execute('DELETE FROM months')
+        cursor.execute('''
+            INSERT INTO months (month, year, starting_bank_value, monthly_income)
+            VALUES (?, ?, 0.00, 0.00)
+        ''', (current_date.month, current_date.year))
+        
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'message': 'All data has been reset successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error resetting data: {str(e)}'}), 500
+
+@app.route('/seed_data', methods=['POST'])
+def seed_data():
+    """Generate random expense data for the currently selected month"""
+    from flask import jsonify
+    import random
+    from datetime import datetime, timedelta
+    
+    try:
+        # Get the current month from session
+        if 'current_month_id' not in session:
+            return jsonify({
+                'success': False, 
+                'message': 'No month selected. Please select a month first.'
+            }), 400
+        
+        current_month_id = session['current_month_id']
+        
+        conn = get_db_connection()
+        
+        # Get the current month details
+        current_month = conn.execute('SELECT * FROM months WHERE id = ?', (current_month_id,)).fetchone()
+        if not current_month:
+            conn.close()
+            return jsonify({
+                'success': False, 
+                'message': 'Selected month not found. Please select a valid month.'
+            }), 404
+        
+        # Get all active expense types
+        expense_types = conn.execute('SELECT * FROM expense_types WHERE is_active = TRUE').fetchall()
+        if not expense_types:
+            conn.close()
+            return jsonify({
+                'success': False, 
+                'message': 'No expense types found. Please ensure the database is set up correctly.'
+            }), 404
+        
+        # Create realistic descriptions for each expense type
+        expense_descriptions = {
+            'Rent/Mortgage': ['Monthly rent payment', 'Mortgage payment', 'Housing payment'],
+            'Utilities': ['Electric bill', 'Water bill', 'Gas bill', 'Utility payment'],
+            'Phone': ['Phone bill', 'Mobile service payment', 'Cell phone bill'],
+            'Internet': ['Internet service', 'WiFi bill', 'Broadband payment'],
+            'Insurance': ['Car insurance', 'Health insurance', 'Home insurance', 'Life insurance premium'],
+            'Groceries': ['Weekly grocery shopping', 'Supermarket run', 'Food shopping', 'Grocery store'],
+            'Gas': ['Gas station fill-up', 'Fuel purchase', 'Car fuel'],
+            'Shopping': ['Clothing purchase', 'Department store', 'Online shopping', 'Retail purchase'],
+            'Entertainment': ['Movie tickets', 'Concert tickets', 'Streaming subscription', 'Game purchase'],
+            'Dining Out': ['Restaurant meal', 'Fast food', 'Coffee shop', 'Lunch out', 'Dinner date'],
+            'Amazon': ['Amazon order', 'Amazon purchase', 'Online order'],
+            'Healthcare': ['Doctor visit', 'Prescription medication', 'Dental appointment', 'Medical bill'],
+            'Other': ['Miscellaneous expense', 'General purchase', 'Unexpected cost', 'Service fee']
+        }
+        
+        # Generate realistic expense amounts for each type
+        expense_amounts = {
+            'Rent/Mortgage': (800, 2500),
+            'Utilities': (50, 300),
+            'Phone': (40, 150),
+            'Internet': (40, 120),
+            'Insurance': (80, 500),
+            'Groceries': (50, 250),
+            'Gas': (25, 80),
+            'Shopping': (20, 200),
+            'Entertainment': (15, 100),
+            'Dining Out': (15, 150),
+            'Amazon': (10, 200),
+            'Healthcare': (20, 300),
+            'Other': (10, 150)
+        }
+        
+        # Get the year and month for date generation
+        year = current_month['year']
+        month = current_month['month']
+        
+        # Generate 10 random expenses
+        cursor = conn.cursor()
+        for _ in range(10):
+            # Select a random expense type
+            expense_type = random.choice(expense_types)
+            expense_type_name = expense_type['name']
+            expense_type_id = expense_type['id']
+            
+            # Generate a random day (1-25 for safety)
+            day = random.randint(1, 25)
+            
+            # Create the date string in YYYY-MM-DD format
+            date_str = f"{year}-{month:02d}-{day:02d}"
+            
+            # Get a random amount based on expense type
+            min_amount, max_amount = expense_amounts.get(expense_type_name, (10, 100))
+            # Generate a random amount with 2 decimal places
+            amount = round(random.uniform(min_amount, max_amount), 2)
+            
+            # Get a random description based on expense type
+            descriptions = expense_descriptions.get(expense_type_name, ['Expense'])
+            description = random.choice(descriptions)
+            
+            # Insert the expense into the database
+            cursor.execute('''
+                INSERT INTO expenses (amount, description, expense_type_id, date, is_recurring, recurring_day)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (amount, description, expense_type_id, date_str, False, None))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Successfully generated 10 random expenses for the selected month!'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error seeding data: {str(e)}'}), 500
+
 if __name__ == '__main__':
     # Create templates folder if it doesn't exist
     # This check might be redundant if app.py is run after setup_db.py or directory structure is managed by version control

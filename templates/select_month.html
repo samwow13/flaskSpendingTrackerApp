@@ -5,27 +5,35 @@
 {% block content %}
 <div class="container">
     <div class="row mb-4">
-        <div class="col">
-            <h1>Select Month</h1>
-            <p class="text-muted">Choose a month to set as your current focus</p>
-            <hr>
+    <div class="col-12">
+        <div class="card shadow-sm mb-3 p-3 section-header" style="background: #6c47de; color: #fff; border-radius: 0.75rem;">
+            <h1 class="section-header-title mb-0" style="font-weight: 700; font-size: 2.2rem;">Select Month</h1>
+            <p class="text-light mb-0">Choose a month to set as your current focus</p>
         </div>
     </div>
+</div>
 
     <div class="row">
         <div class="col-md-8">
+    <div class="card card-custom bg-light shadow-sm mb-4">
+        <div class="card-header section-header d-flex justify-content-between align-items-center">
+            <h2 class="section-header-title mb-0">Available Months</h2>
+            <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addMonthModal">
+                <i class="bi bi-plus-circle"></i> Add New Month
+            </button>
+        </div>
+        <div class="card-body">
             {% if months %}
                 <div class="list-group">
                     {% for month in months %}
                         <a href="{{ url_for('month_routes.set_current_month', month_id=month.id) }}" 
-                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center
-                                  {% if month.id == current_month_id %}active{% endif %}">
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {% if month.id == current_month_id %}active{% endif %}">
                             <div>
                                 <h5 class="mb-1">{{ [
                                     'January', 'February', 'March', 'April', 'May', 'June',
                                     'July', 'August', 'September', 'October', 'November', 'December'
                                 ][month.month-1] }} {{ month.year }}</h5>
-                                <p class="mb-1">Starting Value: ${{ "%.2f"|format(month.starting_bank_value) }} | Income: ${{ "%.2f"|format(month.monthly_income) }}</p>
+                                <p class="mb-1">Total Expenses: ${{ "%.2f"|format(month.total_expenses) }} | Income: ${{ "%.2f"|format(month.monthly_income) }}</p>
                             </div>
                             {% if month.id == current_month_id %}
                                 <span class="badge bg-primary rounded-pill">Current</span>
@@ -40,21 +48,19 @@
                     No months found in the database. Please ensure the database is set up correctly.
                 </div>
             {% endif %}
-
-            <div class="mt-4">
-                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addMonthModal">
-                    <i class="bi bi-plus-circle"></i> Add New Month
-                </button>
-                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i> Back to Dashboard
-                </a>
-            </div>
+        </div>
+        <div class="card-footer bg-transparent border-0 d-flex justify-content-end gap-2">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
         </div>
 
         <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">About Month Selection</h5>
+            <div class="card card-custom bg-light shadow-sm">
+                <div class="card-header section-header">
+                    <h5 class="section-header-title mb-0">About Month Selection</h5>
                 </div>
                 <div class="card-body">
                     <p>The selected month will be used as your current focus throughout the application.</p>
@@ -108,13 +114,11 @@
             <label for="year" class="form-label">Year</label>
             <input type="number" class="form-control" id="year" name="year" min="2020" max="2050" value="{{ current_year }}" required>
           </div>
-          <div class="mb-3">
-            <label for="starting_bank_value" class="form-label">Starting Bank Value ($)</label>
-            <input type="number" class="form-control" id="starting_bank_value" name="starting_bank_value" step="0.01" min="0" value="0.00" required>
-          </div>
+          <!-- Starting Bank Value field removed -->
           <div class="mb-3">
             <label for="monthly_income" class="form-label">Monthly Income ($)</label>
-            <input type="number" class="form-control" id="monthly_income" name="monthly_income" step="0.01" min="0" value="0.00" required>
+            <input type="number" class="form-control" id="monthly_income" name="monthly_income" step="0.01" min="0" value="{{ latest_monthly_income if latest_monthly_income else '0.00' }}" required>
+            <div class="form-text">Auto-populated from the most recent month's income.</div>
           </div>
           <div class="d-grid gap-2">
             <button type="submit" class="btn btn-success">Add Month</button>
