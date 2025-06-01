@@ -1,0 +1,111 @@
+from flask import Flask, render_template, request, redirect, url_for
+import sqlite3
+import os
+from datetime import datetime
+
+app = Flask(__name__)
+
+# Import and register blueprints
+from templateLogic.month_routes import month_routes
+from templateLogic.expense_type_routes import expense_type_routes
+app.register_blueprint(month_routes, url_prefix='/month')
+app.register_blueprint(expense_type_routes, url_prefix='/expense-types')
+
+# Database configuration
+DB_NAME = 'spending_tracker.db'
+DB_PATH = os.path.join(os.path.dirname(__file__), DB_NAME)
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+@app.route('/')
+def index():
+    conn = get_db_connection()
+    # Fetch expense types to display
+    expense_types = conn.execute('SELECT * FROM expense_types WHERE is_active = TRUE ORDER BY name').fetchall()
+    
+    # Get current_month_id from request args (if provided)
+    current_month_id = request.args.get('current_month_id', None)
+    
+    # Fetch current month's details based on current_month_id if provided
+    if current_month_id:
+        current_month_data = conn.execute('SELECT * FROM months WHERE id = ?', (current_month_id,)).fetchone()
+        # If month not found, fall back to default behavior
+        if not current_month_data:
+            current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+    else:
+        # Default behavior - get most recent month
+        current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+    
+    conn.close()
+    return render_template('index.html', expense_types=expense_types, current_month=current_month_data, month_error=None, show_month_modal=False)
+
+@app.route('/add_expense', methods=['GET', 'POST'])
+def add_expense():
+    print("--- Accessing /add_expense route ---") # New log
+    conn = get_db_connection()
+    if request.method == 'POST':
+        print("--- /add_expense: POST request received ---") # New log
+        print(f"Form data: {request.form}") # New log
+        amount = request.form.get('amount') # Use .get() to avoid KeyError if field is missing
+        description = request.form.get('description')
+        expense_type_id = request.form.get('expense_type_id')
+        date = request.form.get('date')
+        is_recurring = 'is_recurring' in request.form
+        recurring_day = request.form.get('recurring_day') if is_recurring else None
+
+        # Basic validation (can be expanded)
+        if not amount or not expense_type_id or not date:
+            # Handle error - return to index with error message to display in modal
+            expense_types = conn.execute('SELECT * FROM expense_types WHERE is_active = TRUE ORDER BY name').fetchall()
+            current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+            conn.close()
+            return render_template('index.html', expense_types=expense_types, current_month=current_month_data, error='Missing required fields', show_modal=True)
+
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO expenses (amount, description, expense_type_id, date, is_recurring, recurring_day)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (amount, description, expense_type_id, date, is_recurring, recurring_day))
+            conn.commit()
+        except sqlite3.Error as e:
+            # Handle error - return to index with error message to display in modal
+            expense_types = conn.execute('SELECT * FROM expense_types WHERE is_active = TRUE ORDER BY name').fetchall()
+            current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+            conn.close()
+            return render_template('index.html', expense_types=expense_types, current_month=current_month_data, error=f'Database error: {e}', show_modal=True)
+        finally:
+            conn.close()
+        
+        return redirect(url_for('index')) # Redirect to homepage after adding
+
+    # GET request: we no longer need this since we're using a modal
+    # Just redirect to index
+    conn.close()
+    return redirect(url_for('index'))
+
+@app.context_processor
+def inject_current_year():
+    return {'current_year': datetime.utcnow().year}
+
+if __name__ == '__main__':
+    # Create templates folder if it doesn't exist
+    # This check might be redundant if app.py is run after setup_db.py or directory structure is managed by version control
+    templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
+    if not os.path.exists(templates_dir):
+        os.makedirs(templates_dir)
+    
+    static_dir = os.path.join(os.path.dirname(__file__), 'static')
+    if not os.path.exists(static_dir):
+        os.makedirs(static_dir)
+        css_dir = os.path.join(static_dir, 'css')
+        if not os.path.exists(css_dir):
+            os.makedirs(css_dir)
+            # Optionally create an empty style.css if it doesn't exist
+            # with open(os.path.join(css_dir, 'style.css'), 'a') as f:
+            #     pass 
+
+    app.run(debug=True)
