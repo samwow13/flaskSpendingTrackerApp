@@ -8,8 +8,10 @@ app = Flask(__name__)
 # Import and register blueprints
 from templateLogic.month_routes import month_routes
 from templateLogic.expense_type_routes import expense_type_routes
+from templateLogic.expense_routes import expense_routes
 app.register_blueprint(month_routes, url_prefix='/month')
 app.register_blueprint(expense_type_routes, url_prefix='/expense-types')
+app.register_blueprint(expense_routes, url_prefix='/expenses')
 
 # Database configuration
 DB_NAME = 'spending_tracker.db'
@@ -39,8 +41,19 @@ def index():
         # Default behavior - get most recent month
         current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
     
+    # Fetch 10 most recent expenses with expense type names
+    recent_expenses = conn.execute('''
+        SELECT e.id, e.amount, e.description, e.date, et.name as expense_type_name, e.created_at
+        FROM expenses e
+        JOIN expense_types et ON e.expense_type_id = et.id
+        WHERE e.is_active = TRUE
+        ORDER BY e.created_at DESC
+        LIMIT 10
+    ''').fetchall()
+    
     conn.close()
-    return render_template('index.html', expense_types=expense_types, current_month=current_month_data, month_error=None, show_month_modal=False)
+    return render_template('index.html', expense_types=expense_types, current_month=current_month_data, 
+                           recent_expenses=recent_expenses, month_error=None, show_month_modal=False)
 
 @app.route('/add_expense', methods=['GET', 'POST'])
 def add_expense():
@@ -61,8 +74,18 @@ def add_expense():
             # Handle error - return to index with error message to display in modal
             expense_types = conn.execute('SELECT * FROM expense_types WHERE is_active = TRUE ORDER BY name').fetchall()
             current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+            # Fetch recent expenses for the template
+            recent_expenses = conn.execute('''
+                SELECT e.id, e.amount, e.description, e.date, et.name as expense_type_name, e.created_at
+                FROM expenses e
+                JOIN expense_types et ON e.expense_type_id = et.id
+                WHERE e.is_active = TRUE
+                ORDER BY e.created_at DESC
+                LIMIT 10
+            ''').fetchall()
             conn.close()
-            return render_template('index.html', expense_types=expense_types, current_month=current_month_data, error='Missing required fields', show_modal=True)
+            return render_template('index.html', expense_types=expense_types, current_month=current_month_data, 
+                                   recent_expenses=recent_expenses, error='Missing required fields', show_modal=True)
 
         try:
             cursor = conn.cursor()
@@ -75,8 +98,18 @@ def add_expense():
             # Handle error - return to index with error message to display in modal
             expense_types = conn.execute('SELECT * FROM expense_types WHERE is_active = TRUE ORDER BY name').fetchall()
             current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
+            # Fetch recent expenses for the template
+            recent_expenses = conn.execute('''
+                SELECT e.id, e.amount, e.description, e.date, et.name as expense_type_name, e.created_at
+                FROM expenses e
+                JOIN expense_types et ON e.expense_type_id = et.id
+                WHERE e.is_active = TRUE
+                ORDER BY e.created_at DESC
+                LIMIT 10
+            ''').fetchall()
             conn.close()
-            return render_template('index.html', expense_types=expense_types, current_month=current_month_data, error=f'Database error: {e}', show_modal=True)
+            return render_template('index.html', expense_types=expense_types, current_month=current_month_data, 
+                                   recent_expenses=recent_expenses, error=f'Database error: {e}', show_modal=True)
         finally:
             conn.close()
         

@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+
+{% block title %}View Expenses - Spending Tracker{% endblock %}
+
+{% block head %}
+{{ super() }}
+<!-- Add Chart.js with defer to ensure it loads after DOM is ready -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>Expenses for {{ "%02d"|format(month_data['month']) }}/{{ month_data['year'] }}</h1>
+            <div>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+        <hr>
+    </div>
+</div>
+
+<!-- Month Selector and Filters -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3 mb-md-0">
+        <div class="card card-custom bg-light shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Select Month</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('expense_routes.view_expenses') }}" method="GET" id="monthForm">
+                    <select class="form-select" name="month_id" id="month_id" onchange="this.form.submit()">
+                        {% for month in all_months %}
+                            <option value="{{ month.id }}" {% if month.id == month_data.id %}selected{% endif %}>
+                                {{ "%02d"|format(month.month) }}/{{ month.year }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card card-custom bg-light shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Filters</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('expense_routes.view_expenses') }}" method="GET" class="row g-3" id="filterForm">
+                    <input type="hidden" name="month_id" value="{{ month_data.id }}">
+                    
+                    <div class="col-md-4">
+                        <label for="expense_type_id" class="form-label">Expense Type</label>
+                        <select class="form-select" id="expense_type_id" name="expense_type_id">
+                            <option value="all" {% if expense_type_filter == 'all' %}selected{% endif %}>All Types</option>
+                            {% for type in expense_types %}
+                                <option value="{{ type.id }}" {% if expense_type_filter|string == type.id|string %}selected{% endif %}>
+                                    {{ type.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label for="sort_by" class="form-label">Sort By</label>
+                        <select class="form-select" id="sort_by" name="sort_by">
+                            <option value="date" {% if sort_by == 'date' %}selected{% endif %}>Date</option>
+                            <option value="amount" {% if sort_by == 'amount' %}selected{% endif %}>Amount</option>
+                            <option value="expense_type" {% if sort_by == 'expense_type' %}selected{% endif %}>Expense Type</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label for="sort_order" class="form-label">Order</label>
+                        <select class="form-select" id="sort_order" name="sort_order">
+                            <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Ascending</option>
+                            <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Descending</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-12 text-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-filter me-1"></i> Apply Filters
+                        </button>
+                        <a href="{{ url_for('expense_routes.view_expenses', month_id=month_data.id) }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-1"></i> Clear Filters
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Month Summary -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card card-custom bg-light shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Month Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3 mb-md-0">
+                        <div class="card bg-success-subtle">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Starting Balance</h6>
+                                <p class="card-text h4">${{ month_data['starting_bank_value']|round(2) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3 mb-md-0">
+                        <div class="card bg-info-subtle">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Monthly Income</h6>
+                                <p class="card-text h4">${{ month_data['monthly_income']|round(2) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3 mb-md-0">
+                        <div class="card bg-danger-subtle">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Total Expenses</h6>
+                                <p class="card-text h4">${{ total_amount|round(2) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-primary-subtle">
+                            <div class="card-body text-center">
+                                <h6 class="card-title">Remaining Balance</h6>
+                                <p class="card-text h4">${{ (month_data['starting_bank_value'] + month_data['monthly_income'] - total_amount)|round(2) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Split View: Expenses Table and Charts -->
+<div class="row">
+    <!-- Left Column: Expense List -->
+    <div class="col-lg-7">
+        <div class="card card-custom bg-light shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Expense List</h5>
+            </div>
+            <div class="card-body">
+                {% if expenses %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Recurring</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for expense in expenses %}
+                                    <tr>
+                                        <td>{{ expense.date }}</td>
+                                        <td>{{ expense.description or 'N/A' }}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ expense.expense_type_name }}</span>
+                                        </td>
+                                        <td class="text-end">${{ expense.amount|round(2) }}</td>
+                                        <td>
+                                            {% if expense.is_recurring %}
+                                                <span class="badge bg-info">Yes (Day {{ expense.recurring_day }})</span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark">No</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-primary" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger" title="Delete">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-light fw-bold">
+                                    <td colspan="3" class="text-end">Total:</td>
+                                    <td class="text-end">${{ total_amount|round(2) }}</td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i> No expenses found for this month and filter criteria.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column: Charts -->
+    <div class="col-lg-5">
+        <!-- Expense Distribution by Type Chart -->
+        <div class="card card-custom bg-light shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Expense Distribution by Type</h5>
+            </div>
+            <div class="card-body">
+                {% if expenses %}
+                <div class="chart-container" style="position: relative; height:400px;">
+                    <canvas id="expenseTypeChart"></canvas>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i> No data available for chart.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Expense link is now in the header -->
+
+<!-- Hidden element to store expense data for charts -->
+{% if expenses %}
+<script id="expense-data" type="application/json">
+{
+    "expenses": [
+        {% for expense in expenses %}
+            {
+                "date": "{{ expense.date }}",
+                "amount": {{ expense.amount }},
+                "expense_type_name": "{{ expense.expense_type_name|replace('"', '\\\\')|safe }}"
+            }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ],
+    "month_data": {
+        "year": {{ month_data.year }},
+        "month": {{ month_data.month }}
+    }
+}
+</script>
+{% else %}
+<!-- Create empty data structure when no expenses exist -->
+<script id="expense-data" type="application/json">
+{
+    "expenses": [],
+    "month_data": {
+        "year": {{ month_data.year }},
+        "month": {{ month_data.month }}
+    }
+}
+</script>
+{% endif %}
+
+<script>
+// Process expense data for charts
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, checking for chart elements');
+    // Check if expense data and chart canvas are available
+    const expenseDataElement = document.getElementById('expense-data');
+    const chartCanvas = document.getElementById('expenseTypeChart');
+    
+    console.log('Expense data element exists:', !!expenseDataElement);
+    console.log('Chart canvas exists:', !!chartCanvas);
+    
+    // Define Chart globally if it's not defined yet (handles potential loading order issues)
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded. Attempting to reload...');
+        // Create a script element to load Chart.js again
+        const chartScript = document.createElement('script');
+        chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js';
+        chartScript.onload = function() {
+            console.log('Chart.js loaded successfully');
+            // Now try to initialize the chart again
+            initializeChart();
+        };
+        chartScript.onerror = function() {
+            console.error('Failed to load Chart.js');
+            if (chartCanvas) {
+                chartCanvas.parentNode.innerHTML = '<div class="alert alert-danger">Failed to load Chart.js library</div>';
+            }
+        };
+        document.head.appendChild(chartScript);
+        return;
+    }
+    
+    // Initialize the chart
+    initializeChart();
+    
+    function initializeChart() {
+        if (expenseDataElement && chartCanvas) {
+            try {
+                // Parse the JSON data
+                const jsonContent = expenseDataElement.textContent.trim();
+                console.log('Raw JSON data:', jsonContent);
+                
+                let data, expenses;
+                try {
+                    data = JSON.parse(jsonContent);
+                    expenses = data.expenses;
+                    console.log('Parsed expenses:', expenses);
+                } catch (parseError) {
+                    console.error('Failed to parse JSON data:', parseError);
+                    // Create a message in the chart container
+                    chartCanvas.parentNode.innerHTML = '<div class="alert alert-danger">Error loading chart data</div>';
+                    return;
+                }
+                
+                if (!expenses || expenses.length === 0) {
+                    console.warn('No expenses data available for chart');
+                    chartCanvas.parentNode.innerHTML = '<div class="alert alert-info">No expense data available for the selected month</div>';
+                    return;
+                }
+                
+                // Data for expense type distribution chart (pie chart)
+                const expensesByType = {};
+                
+                // Generate a color palette for expense types
+                const colorPalette = [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                    '#FF9F40', '#8AC54B', '#EA526F', '#23B5D3', '#279AF1',
+                    '#7E77F9', '#A288E3', '#BDCCF4', '#9ED8DB', '#FF9A76'
+                ];
+                
+                // Process expense data by type
+                expenses.forEach(expense => {
+                    try {
+                        const typeName = expense.expense_type_name;
+                        const amount = parseFloat(expense.amount);
+                        
+                        if (isNaN(amount)) {
+                            console.warn('Invalid amount for expense:', expense);
+                            return; // Skip this expense
+                        }
+                        
+                        if (!expensesByType[typeName]) {
+                            expensesByType[typeName] = 0;
+                        }
+                        
+                        expensesByType[typeName] += amount;
+                    } catch (expenseError) {
+                        console.warn('Error processing expense:', expense, expenseError);
+                    }
+                });
+                
+                console.log('Expenses by type:', expensesByType);
+                
+                // Prepare data for pie chart
+                const typeLabels = Object.keys(expensesByType);
+                const typeData = typeLabels.map(type => expensesByType[type]);
+                
+                console.log('Chart labels:', typeLabels);
+                console.log('Chart data:', typeData);
+                
+                if (typeLabels.length === 0) {
+                    console.warn('No expense types to display in chart');
+                    chartCanvas.parentNode.innerHTML = '<div class="alert alert-info">No expense data available for chart</div>';
+                    return;
+                }
+                
+                const backgroundColors = colorPalette.slice(0, typeLabels.length);
+                
+                // Ensure the canvas is cleared before creating a new chart
+                const ctx = chartCanvas.getContext('2d');
+                ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+                
+                // Create the expense type pie chart
+                if (window.expenseChart) {
+                    window.expenseChart.destroy();
+                }
+                
+                window.expenseChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: typeLabels,
+                        datasets: [{
+                            data: typeData,
+                            backgroundColor: backgroundColors,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 15,
+                                    padding: 15
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.raw || 0;
+                                        const total = context.dataset.data.reduce((acc, val) => acc + val, 0);
+                                        const percentage = Math.round((value / total) * 100);
+                                        return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                console.log('Chart created successfully');
+            } catch (error) {
+                console.error('Error creating charts:', error);
+                console.error('Error details:', error.message);
+                chartCanvas.parentNode.innerHTML = '<div class="alert alert-danger">Error creating chart: ' + error.message + '</div>';
+            }
+        } else {
+            console.error('Chart elements not found');
+            if (chartCanvas) {
+                chartCanvas.parentNode.innerHTML = '<div class="alert alert-warning">Missing data for chart</div>';
+            }
+        }
+    }
+});
+</script>
+
+{% endblock %}

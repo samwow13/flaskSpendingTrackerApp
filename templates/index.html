@@ -21,9 +21,6 @@
                     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
                         <i class="bi bi-plus-circle me-1"></i> Add New Expense
                     </button>
-                    <a href="#" class="btn btn-info">
-                        <i class="bi bi-list-ul me-1"></i> View All Expenses
-                    </a>
                     <a href="{{ url_for('expense_type_routes.manage_expense_types') }}" class="btn btn-secondary">
                         <i class="bi bi-gear me-1"></i> Manage Expense Types
                     </a>
@@ -74,6 +71,50 @@
                 No month data found. Please ensure the database is set up correctly and has month entries.
             </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- Recent Expenses Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card card-custom bg-light shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Recent Expenses</h2>
+                <a href="{{ url_for('expense_routes.view_expenses') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-list-ul me-1"></i> View All Expenses
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_expenses %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for expense in recent_expenses %}
+                                    <tr>
+                                        <td>{{ expense.date }}</td>
+                                        <td>{{ expense.expense_type_name }}</td>
+                                        <td>{{ expense.description|default('', true) }}</td>
+                                        <td class="text-end fw-bold">$<span class="{% if expense.amount > 100 %}text-danger{% endif %}">{{ "%.2f"|format(expense.amount) }}</span></td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        No expenses found. Add your first expense to get started!
+                    </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
 
