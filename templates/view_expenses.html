@@ -48,26 +48,30 @@
 <div class="container-fluid px-4 mb-4">
     <div class="row">
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap">
-            <div class="card shadow-sm mb-3" style="background: linear-gradient(90deg, #6c47de 0%, #8f5ff7 100%); border-radius: 1rem;">
-    <div class="card-body py-3">
-        <form action="{{ url_for('expense_routes.view_expenses') }}" method="GET" id="monthForm" class="mb-0">
-            <div class="input-group input-group-lg">
-                <span class="input-group-text bg-white border-0" style="border-top-left-radius: 0.75rem; border-bottom-left-radius: 0.75rem;"><i class="bi bi-calendar3 text-primary"></i></span>
-                <select class="form-select form-select-lg border-0" name="month_id" id="month_id" style="max-width: 320px; font-size: 1.5rem; padding: 0.75rem 1rem; border-top-right-radius: 0.75rem; border-bottom-right-radius: 0.75rem;" onchange="this.form.submit()">
-    {% for month in all_months %}
-        <option value="{{ month.id }}" {% if month.id == month_data.id %}selected{% endif %}>
-            {{ "%02d"|format(month.month) }}/{{ month.year }}
-        </option>
-    {% endfor %}
-</select>
-{% set month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] %}
-<span class="input-group-text bg-transparent border-0 ps-3" style="font-size: 1.3rem; color: #fff; font-weight: 600; text-shadow: 0 1px 8px #6c47de;">
-    {{ month_names[month_data['month']] }}
-</span>
-            </div>
-        </form>
-    </div>
+            <!-- Enhanced Month Selection Area -->
+<div class="card shadow-sm mb-3" style="background: linear-gradient(90deg, #6c47de 0%, #8f5ff7 100%); border-radius: 1rem;">
+  <div class="card-body py-3">
+    <form action="{{ url_for('expense_routes.view_expenses') }}" method="GET" id="monthForm" class="mb-0">
+      <div class="input-group input-group-lg flex-nowrap" style="min-width: 350px; max-width: 480px;"> <!-- Increased width -->
+        <span class="input-group-text bg-white border-0" style="border-top-left-radius: 0.75rem; border-bottom-left-radius: 0.75rem; padding-left: 1.25rem; padding-right: 1.25rem;">
+          <i class="bi bi-calendar3 text-primary"></i>
+        </span>
+        <select class="form-select form-select-lg border-0 flex-grow-1" name="month_id" id="month_id" style="min-width: 160px; font-size: 1.35rem; padding: 0.85rem 1.25rem; border-radius: 0;" onchange="this.form.submit()">
+          {% for month in all_months %}
+            <option value="{{ month.id }}" {% if month.id == month_data.id %}selected{% endif %}>
+              {{ "%02d"|format(month.month) }}/{{ month.year }}
+            </option>
+          {% endfor %}
+        </select>
+        {% set month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] %}
+        <span class="input-group-text bg-transparent border-0 ps-3 pe-4" style="font-size: 1.7rem; color: #fff; font-weight: 700; text-shadow: 0 1px 8px #6c47de; min-width: 80px;">
+          {{ month_names[month_data['month']] }}
+        </span>
+      </div>
+    </form>
+  </div>
 </div>
+<!-- End Enhanced Month Selection Area -->
             <div class="mt-3 mt-md-0">
                 <button type="button" class="btn btn-outline-primary me-2 position-relative" data-bs-toggle="modal" data-bs-target="#filtersModal">
                     <i class="bi bi-funnel me-1"></i> Filters
