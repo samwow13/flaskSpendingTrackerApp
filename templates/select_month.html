@@ -19,7 +19,7 @@
         <div class="card-header section-header d-flex justify-content-between align-items-center">
             <h2 class="section-header-title mb-0">Available Months</h2>
             <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addMonthModal">
-                <i class="bi bi-plus-circle"></i> Add New Month
+                <i class="bi bi-plus-circle"></i> <span>Add New Month</span>
             </button>
         </div>
         <div class="card-body">
@@ -50,9 +50,9 @@
             {% endif %}
         </div>
         <div class="card-footer bg-transparent border-0 d-flex justify-content-end gap-2">
-            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Back to Dashboard
-            </a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">
+    <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+</a>
         </div>
     </div>
         </div>
@@ -81,8 +81,9 @@
 <div class="modal fade" id="addMonthModal" tabindex="-1" aria-labelledby="addMonthModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="addMonthModalLabel">Add New Month</h5>
+      <!-- Custom Section Header for Add Month Modal -->
+      <div class="section-header d-flex align-items-center justify-content-between w-100" style="border-radius: 0.75rem 0.75rem 0 0;">
+        <span class="section-header-title mb-0" id="addMonthModalLabel">Add New Month</span>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">

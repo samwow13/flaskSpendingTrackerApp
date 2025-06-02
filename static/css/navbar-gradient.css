@@ -1,0 +1,54 @@
+/*
+    navbar-gradient.css
+    Custom gradient styling for the navbar to match .section-header color scheme
+    This file is modular and only affects the navbar-gradient class.
+*/
+
+.navbar-gradient {
+    background: linear-gradient(100deg, #5b6dfa 0%, #7f53ac 100%) !important;
+    box-shadow: 0 8px 32px 0 rgba(91, 109, 250, 0.18), 0 2px 8px 0 rgba(44, 62, 80, 0.10);
+    border-bottom: 3px solid #a18cd1;
+}
+
+.navbar-gradient .navbar-brand,
+.navbar-gradient .nav-link,
+.navbar-gradient .navbar-toggler,
+.navbar-gradient .bi {
+    color: #fff !important;
+    font-family: 'Montserrat', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    text-shadow: 0 3px 12px rgba(44, 62, 80, 0.18), 0 1.5px 4px rgba(161, 140, 209, 0.18);
+}
+
+.navbar-gradient .nav-link.active {
+    filter: brightness(1.15) saturate(1.2);
+    font-weight: 700;
+}
+
+.navbar-gradient .nav-link:hover,
+.navbar-gradient .navbar-brand:hover {
+    text-decoration: underline;
+    color: #fff !important;
+}
+
+.navbar-gradient .btn-outline-light {
+    border-color: rgba(255,255,255,0.85) !important;
+    color: #fff !important;
+    background: rgba(255,255,255,0.08) !important;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(44,62,80,0.10);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.navbar-gradient .btn-outline-light:hover {
+    background: rgba(255,255,255,0.18) !important;
+    color: #fff !important;
+    border-color: #fff !important;
+}
+
+.navbar-gradient .navbar-toggler {
+    border: none;
+}
+
+.navbar-gradient .navbar-toggler-icon {
+    filter: brightness(1.25);
+}

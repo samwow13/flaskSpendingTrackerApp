@@ -63,29 +63,16 @@ def add_expense_type():
 
 @expense_type_routes.route('/delete/<int:type_id>', methods=['POST'])
 def delete_expense_type(type_id):
-    """Delete an expense type"""
+    """Delete an expense type (always hard delete from DB, regardless of usage)"""
     conn = get_db_connection()
-    
     try:
-        # Check if the expense type is in use
-        expenses = conn.execute('SELECT COUNT(*) as count FROM expenses WHERE expense_type_id = ?', (type_id,)).fetchone()
-        
-        if expenses and expenses['count'] > 0:
-            # If the expense type is in use, mark it as inactive instead of deleting
-            conn.execute('UPDATE expense_types SET is_active = FALSE WHERE id = ?', (type_id,))
-            conn.commit()
-            return redirect(url_for('expense_type_routes.manage_expense_types'))
-        
-        # If not in use, delete it completely
+        # Always perform a hard delete, even if there are expenses referencing this type
         conn.execute('DELETE FROM expense_types WHERE id = ?', (type_id,))
         conn.commit()
-        
         return redirect(url_for('expense_type_routes.manage_expense_types'))
-        
     except sqlite3.Error as e:
         # Handle database errors
         expense_types = conn.execute('SELECT * FROM expense_types ORDER BY name').fetchall()
         return render_template('manage_expense_types.html', expense_types=expense_types, error=f"Database error: {e}")
-    
     finally:
         conn.close()
