@@ -60,6 +60,9 @@
           {% for month in all_months %}
             <option value="{{ month.id }}" {% if month.id == month_data.id %}selected{% endif %}>
               {{ "%02d"|format(month.month) }}/{{ month.year }}
+              {% if expenses|selectattr('is_recurring_instance', 'defined')|selectattr('is_recurring_instance')|list|length > 0 and month.id == month_data.id %}
+                <span class="text-primary"> • </span>
+              {% endif %}
             </option>
           {% endfor %}
         </select>
@@ -172,9 +175,39 @@
 <div class="card card-ending-balance mb-3 bg-success text-white shadow-sm" style="border-radius: 0.75rem;">
     <div class="card-body">
         <h5 class="section-header-title">Ending Balance</h5>
-        <p class="card-text h3 mb-0">${{ (month_data['starting_bank_value'] + month_data['monthly_income'] - total_amount)|round(2) }}</p>
+        <p class="card-text h3 mb-0">${{ "%.2f"|format(month_data['starting_bank_value'] + month_data['monthly_income'] - total_amount) }}</p>
     </div>
 </div>
+
+{% set recurring_expenses = expenses|selectattr('is_recurring_instance', 'defined')|selectattr('is_recurring_instance')|list %}
+{% if recurring_expenses|length > 0 %}
+<div class="card mb-3 shadow-sm" style="border-radius: 0.75rem; border-left: 3px solid #0d6efd;">
+    <div class="card-body">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-arrow-repeat text-primary me-2" style="font-size: 1.5rem;"></i>
+            <h5 class="card-title mb-0">Recurring Expenses This Month</h5>
+        </div>
+        <p class="text-muted mt-2 mb-2">The following recurring expenses are automatically included in this month:</p>
+        <div class="table-responsive">
+            <table class="table table-sm table-borderless mb-0">
+                <tbody>
+                    {% for expense in recurring_expenses %}
+                    <tr>
+                        <td><span class="badge bg-{{ 'info' if expense.recurring_interval == 'monthly' else 'primary' if expense.recurring_interval == 'biannual' else 'success' }}">{{ expense.recurring_interval|capitalize }}</span></td>
+                        <td>{{ expense.description }}</td>
+                        <td class="text-end">${{ "%.2f"|format(expense.amount) }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="border-top">
+                        <td colspan="2" class="fw-bold">Total Recurring Expenses:</td>
+                        <td class="text-end fw-bold">${{ "%.2f"|format(recurring_expenses|sum(attribute='amount')) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
                             </div>
                         </div>
                         <!-- Right: Pie Chart -->
@@ -227,40 +260,72 @@
                             </thead>
                             <tbody>
                                 {% for expense in expenses %}
-                                    <tr class="{% if loop.index is even %}alt-row{% endif %} align-middle">
-                                        <td class="text-center align-middle">{{ expense.date }}</td>
+                                    <tr class="{% if loop.index is divisibleby 2 %}alt-row{% endif %} {% if expense.is_recurring_instance is defined and expense.is_recurring_instance %}recurring-instance-row{% endif %} align-middle"
+                                       {% if expense.is_recurring_instance is defined and expense.is_recurring_instance %}
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-html="true"
+                                       title="<strong>Auto-generated Recurring Expense</strong><br>This is an instance of a recurring {{ expense.recurring_interval }} expense.<br>Original date: {{ expense.date }}<br>To edit, modify the original recurring expense."
+                                       {% endif %}>
+                                        <td class="text-center align-middle">
+                                            {{ expense.date }}
+                                            {% if expense.is_recurring_instance is defined and expense.is_recurring_instance %}
+                                                <i class="bi bi-arrow-repeat text-primary" title="Recurring instance"></i>
+                                            {% endif %}
+                                        </td>
                                         <td class="text-center align-middle">{{ expense.description or 'N/A' }}</td>
                                         <td class="text-center align-middle">
     <span class="badge bg-secondary">{{ expense.expense_type_name }}</span>
 </td>
                                         <td class="text-center align-middle">${{ expense.amount|round(2) }}</td>
                                         <td class="text-center align-middle">
-    {% if expense.is_recurring %}
-        <span class="badge bg-info">Yes (Day {{ expense.recurring_day }})</span>
+    {% if expense.recurring_interval != 'none' %}
+        {% if expense.recurring_interval == 'monthly' %}
+            <span class="badge bg-info">Monthly (Day {{ expense.recurring_day }})</span>
+        {% elif expense.recurring_interval == 'biannual' %}
+            <span class="badge bg-primary">Every 6 months</span>
+        {% elif expense.recurring_interval == 'yearly' %}
+            <span class="badge bg-success">Yearly</span>
+        {% endif %}
+        {% if expense.is_recurring_instance is defined and expense.is_recurring_instance %}
+            <span class="badge bg-warning text-dark">Auto-generated</span>
+        {% endif %}
     {% else %}
         <span class="badge bg-light text-dark">No</span>
     {% endif %}
 </td>
                                         <td class="actions-cell">
     <div class="btn-group btn-group-sm align-middle" role="group">
-                                                <button type="button" class="btn btn-outline-primary btn-action-sm edit-expense-btn" title="Edit"
-    data-id="{{ expense.id }}"
-    data-date="{{ expense.date }}"
-    data-amount="{{ expense.amount }}"
-    data-description="{{ expense.description|replace('"', '&quot;')|replace("'", '&apos;') }}"
-    data-expense-type-id="{{ expense.expense_type_id }}"
-    data-is-recurring="{{ expense.is_recurring|lower }}"
-    data-recurring-day="{{ expense.recurring_day or 0 }}">
-    <i class="bi bi-pencil"></i>
-</button>
-                                                <button type="button" class="btn btn-outline-danger btn-action-sm delete-expense-btn" title="Delete"
-    data-id="{{ expense.id }}"
-    data-description="{{ expense.description|replace('"', '&quot;')|replace("'", '&apos;') }}">
-    <i class="bi bi-trash"></i>
-</button>
-<!-- Custom .btn-action-sm class shrinks height for action buttons -->
-                                            </div>
-                                        </td>
+        {% if expense.is_recurring_instance is defined and expense.is_recurring_instance %}
+            <!-- For recurring instances, show different actions -->
+            <button type="button" class="btn btn-outline-primary" 
+                    onclick="alert('This is an auto-generated recurring expense. To modify it, please edit the original recurring expense.')">
+                <i class="bi bi-info-circle"></i> Info
+            </button>
+            <!-- Add a button to navigate to the original expense -->
+            <a href="#" class="btn btn-outline-secondary" 
+               onclick="alert('This expense is generated from a recurring expense template. The original expense was created on ' + '{{ expense.date }}' + '.')">
+                <i class="bi bi-arrow-up-right-circle"></i>
+            </a>
+        {% else %}
+            <!-- Regular expense actions -->
+            <button type="button" class="btn btn-outline-primary edit-expense-btn" 
+                    data-expense-id="{{ expense.id }}"
+                    data-amount="{{ expense.amount }}"
+                    data-description="{{ expense.description }}"
+                    data-expense-type-id="{{ expense.expense_type_id }}"
+                    data-date="{{ expense.date }}"
+                    data-recurring-interval="{{ expense.recurring_interval }}"
+                    data-recurring-day="{{ expense.recurring_day }}">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button type="button" class="btn btn-outline-danger delete-expense-btn" 
+                    data-expense-id="{{ expense.id }}"
+                    data-description="{{ expense.description }}">
+                <i class="bi bi-trash"></i>
+            </button>
+        {% endif %}
+    </div>
+</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
@@ -561,16 +626,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 <input type="date" class="form-control" id="date" name="date" required>
             </div>
 
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" id="is_recurring" name="is_recurring" onchange="toggleRecurringDay()">
-                <label class="form-check-label" for="is_recurring">
-                    Is this a recurring expense?
-                </label>
+            <div class="mb-3">
+                <label for="recurring_interval" class="form-label">Recurring Expense</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-repeat"></i></span>
+                    <select class="form-select" id="recurring_interval" name="recurring_interval" onchange="toggleRecurringOptions()">
+                        <option value="none" selected>Not recurring</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="biannual">Every 6 months</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="form-text">Select if this expense recurs on a regular schedule</div>
             </div>
 
             <div class="mb-3" id="recurring_day_div" style="display: none;">
-                <label for="recurring_day" class="form-label">Recurring Day of Month (1-31)</label>
-                <input type="number" class="form-control" id="recurring_day" name="recurring_day" min="1" max="31">
+                <label for="recurring_day" class="form-label">Day of Month</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-calendar-date"></i></span>
+                    <input type="number" class="form-control" id="recurring_day" name="recurring_day" min="1" max="31" placeholder="Day of month (1-31)">
+                </div>
+                <div class="form-text">For monthly recurring expenses, specify which day of the month</div>
             </div>
         </form>
       </div>
@@ -584,17 +660,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script>
 // Function to toggle recurring day field visibility in add expense modal
-function toggleRecurringDay() {
-    const isRecurring = document.getElementById('is_recurring').checked;
+function toggleRecurringOptions() {
+    const recurringInterval = document.getElementById('recurring_interval').value;
     const recurringDayDiv = document.getElementById('recurring_day_div');
-    recurringDayDiv.style.display = isRecurring ? 'block' : 'none';
+    
+    // Only show recurring day field for monthly recurrences
+    recurringDayDiv.style.display = recurringInterval === 'monthly' ? 'block' : 'none';
+    
+    // If the date field has a value, extract the day for monthly recurrences
+    if (recurringInterval === 'monthly') {
+        const dateField = document.getElementById('date');
+        if (dateField.value) {
+            const selectedDate = new Date(dateField.value);
+            const dayOfMonth = selectedDate.getDate();
+            document.getElementById('recurring_day').value = dayOfMonth;
+        }
+    }
 }
 
 // Function to toggle recurring day field visibility in edit expense modal
-function toggleEditRecurringDay() {
-    const isRecurring = document.getElementById('edit_is_recurring').checked;
+function toggleEditRecurringOptions() {
+    const recurringInterval = document.getElementById('edit_recurring_interval').value;
     const recurringDayDiv = document.getElementById('edit_recurring_day_div');
-    recurringDayDiv.style.display = isRecurring ? 'block' : 'none';
+    
+    // Only show recurring day field for monthly recurrences
+    recurringDayDiv.style.display = recurringInterval === 'monthly' ? 'block' : 'none';
+    
+    // If the date field has a value, extract the day for monthly recurrences
+    if (recurringInterval === 'monthly') {
+        const dateField = document.getElementById('edit_date');
+        if (dateField.value) {
+            const selectedDate = new Date(dateField.value);
+            const dayOfMonth = selectedDate.getDate();
+            document.getElementById('edit_recurring_day').value = dayOfMonth;
+        }
+    }
 }
 
 // Function to confirm expense deletion
@@ -616,22 +716,19 @@ function confirmDeleteExpense(id, description) {
 }
 
 // Function to open and populate the edit expense modal
-function openEditModal(id, date, amount, description, expenseTypeId, isRecurring, recurringDay) {
+function openEditModal(id, date, amount, description, expenseTypeId, recurringInterval, recurringDay) {
     // Set values in the form
     document.getElementById('edit_expense_id').value = id;
     document.getElementById('edit_date').value = date;
     document.getElementById('edit_amount').value = amount;
     document.getElementById('edit_description').value = description;
     document.getElementById('edit_expense_type_id').value = expenseTypeId;
-    document.getElementById('edit_is_recurring').checked = isRecurring === true || isRecurring === 'true';
+    document.getElementById('edit_recurring_interval').value = recurringInterval || 'none';
     
     // Handle recurring day field
-    const recurringDayDiv = document.getElementById('edit_recurring_day_div');
-    if (isRecurring) {
-        recurringDayDiv.style.display = 'block';
+    toggleEditRecurringOptions(); // This will handle showing/hiding the recurring day field
+    if (recurringInterval === 'monthly' && recurringDay) {
         document.getElementById('edit_recurring_day').value = recurringDay;
-    } else {
-        recurringDayDiv.style.display = 'none';
     }
     
     // Open the modal
@@ -650,6 +747,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const month = String(today.getMonth() + 1).padStart(2, '0');
             const day = String(today.getDate()).padStart(2, '0');
             document.getElementById('date').value = `${year}-${month}-${day}`;
+            
+            // Initialize recurring options
+            toggleRecurringOptions();
+            
+            // Set up date field to update recurring day when changed
+            document.getElementById('date').addEventListener('change', function() {
+                if (document.getElementById('recurring_interval').value === 'monthly') {
+                    const selectedDate = new Date(this.value);
+                    const dayOfMonth = selectedDate.getDate();
+                    document.getElementById('recurring_day').value = dayOfMonth;
+                }
+            });
         });
     }
     
@@ -668,10 +777,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const amount = this.dataset.amount;
             const description = this.dataset.description;
             const expenseTypeId = this.dataset.expenseTypeId;
-            const isRecurring = this.dataset.isRecurring === 'true';
+            const recurringInterval = this.dataset.recurringInterval;
             const recurringDay = this.dataset.recurringDay;
             
-            openEditModal(id, date, amount, description, expenseTypeId, isRecurring, recurringDay);
+            openEditModal(id, date, amount, description, expenseTypeId, recurringInterval, recurringDay);
         });
     });
     
@@ -740,20 +849,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 </select>
             </div>
 
-            <div class="form-check form-switch mb-3">
-                <input class="form-check-input" type="checkbox" id="edit_is_recurring" name="is_recurring" onchange="toggleEditRecurringDay()">
-                <label class="form-check-label" for="edit_is_recurring">
-                    This is a recurring expense
-                </label>
+            <div class="mb-3">
+                <label for="edit_recurring_interval" class="form-label fw-medium">Recurring Expense</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-repeat"></i></span>
+                    <select class="form-select" id="edit_recurring_interval" name="recurring_interval" onchange="toggleEditRecurringOptions()">
+                        <option value="none">Not recurring</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="biannual">Every 6 months</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="form-text">Select if this expense recurs on a regular schedule</div>
             </div>
 
             <div class="mb-3" id="edit_recurring_day_div" style="display: none;">
-                <label for="edit_recurring_day" class="form-label fw-medium">Recurring Day of Month</label>
+                <label for="edit_recurring_day" class="form-label fw-medium">Day of Month</label>
                 <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-repeat"></i></span>
+                    <span class="input-group-text"><i class="bi bi-calendar-date"></i></span>
                     <input type="number" class="form-control" id="edit_recurring_day" name="recurring_day" min="1" max="31" placeholder="Day of month (1-31)">
                 </div>
-                <div class="form-text">Enter the day of month (1-31) when this expense recurs</div>
+                <div class="form-text">For monthly recurring expenses, specify which day of the month</div>
             </div>
         </form>
       </div>
@@ -788,5 +904,19 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
   </div>
 </div>
+
+<!-- Initialize tooltips for recurring expense instances -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize all tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl, {
+                placement: 'top',
+                trigger: 'hover'
+            });
+        });
+    });
+</script>
 
 {% endblock %}

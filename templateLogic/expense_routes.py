@@ -15,6 +15,119 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_recurring_expenses_for_month(conn, month_id, month, year):
+    """
+    Get recurring expenses that should appear in the specified month.
+    This checks all active recurring expenses and determines which ones should appear
+    in the given month based on their recurring_interval.
+    
+    Args:
+        conn: Database connection
+        month_id: ID of the month record
+        month: Month number (1-12)
+        year: Year (e.g., 2025)
+        
+    Returns:
+        List of recurring expense dictionaries that should appear in this month
+    """
+    # Get all active recurring expenses that are templates
+    recurring_expenses = conn.execute("""
+        SELECT id, amount, description, date, expense_type_id, recurring_interval, recurring_day
+        FROM expenses
+        WHERE is_active = 1 AND recurring_interval != 'none' AND is_recurring_template = TRUE
+    """).fetchall()
+    
+    # List to store recurring expenses for this month
+    month_recurring_expenses = []
+    
+    # Calculate the target date for the month
+    from datetime import date
+    from dateutil.relativedelta import relativedelta
+    
+    # Calculate start and end dates for the current month
+    start_date = f"{year}-{month:02d}-01"
+    if month == 12:
+        end_date = f"{year + 1}-01-01"
+    else:
+        end_date = f"{year}-{month + 1:02d}-01"
+    
+    for expense in recurring_expenses:
+        # Get the original expense date
+        original_date = datetime.strptime(expense['date'], '%Y-%m-%d').date()
+        expense_id = expense['id']
+        recurring_interval = expense['recurring_interval']
+        recurring_day = expense['recurring_day']
+        
+        # Skip if the original expense was created in the current month
+        # This prevents duplicate entries in the month the recurring expense was created
+        original_date_str = original_date.strftime('%Y-%m-%d')
+        if original_date_str >= start_date and original_date_str < end_date:
+            continue
+        
+        # Determine if this recurring expense should be included in this month
+        should_include = False
+        new_expense_date = None
+        
+        if recurring_interval == 'monthly':
+            # Monthly expenses recur every month on the specified day
+            should_include = True
+            
+            # Use the recurring_day if specified, otherwise use the day from the original date
+            day_to_use = int(recurring_day) if recurring_day is not None else original_date.day
+            
+            # Make sure the day is valid for the month (e.g., no February 30)
+            last_day_of_month = (date(year, month, 1) + relativedelta(months=1, days=-1)).day
+            day_to_use = min(day_to_use, last_day_of_month)
+            
+            new_expense_date = date(year, month, day_to_use)
+            
+        elif recurring_interval == 'biannual':
+            # Biannual expenses recur every 6 months
+            # Calculate months difference between original date and target date
+            months_diff = (year - original_date.year) * 12 + (month - original_date.month)
+            should_include = months_diff % 6 == 0
+            
+            if should_include:
+                # Use the same day of the month if possible
+                day_to_use = min(original_date.day, (date(year, month, 1) + relativedelta(months=1, days=-1)).day)
+                new_expense_date = date(year, month, day_to_use)
+            
+        elif recurring_interval == 'yearly':
+            # Yearly expenses recur every 12 months
+            # Check if month and day match (same month every year)
+            should_include = month == original_date.month
+            
+            if should_include:
+                # Use the same day of the month if possible
+                day_to_use = min(original_date.day, (date(year, month, 1) + relativedelta(months=1, days=-1)).day)
+                new_expense_date = date(year, month, day_to_use)
+        
+        # If this expense should be included in this month, add it to the list
+        if should_include and new_expense_date:
+            # Format the date as string
+            new_date_str = new_expense_date.strftime('%Y-%m-%d')
+            
+            # Get expense type name
+            expense_type = conn.execute('SELECT name FROM expense_types WHERE id = ?', (expense['expense_type_id'],)).fetchone()
+            expense_type_name = expense_type['name'] if expense_type else 'Unknown'
+            
+            # Create a dictionary with expense details
+            recurring_expense = {
+                'id': expense['id'],
+                'amount': expense['amount'],
+                'description': expense['description'],
+                'date': new_date_str,
+                'expense_type_id': expense['expense_type_id'],
+                'expense_type_name': expense_type_name,
+                'recurring_interval': recurring_interval,
+                'recurring_day': recurring_day,
+                'is_recurring_instance': True  # Flag to indicate this is a recurring instance
+            }
+            
+            month_recurring_expenses.append(recurring_expense)
+    
+    return month_recurring_expenses
+
 @expense_routes.route('/view', methods=['GET'])
 def view_expenses():
     """View expenses for a specific month"""
@@ -62,7 +175,7 @@ def view_expenses():
     
     # Build the query based on filters
     query = '''
-        SELECT e.id, e.amount, e.description, e.date, e.is_recurring, e.recurring_day,
+        SELECT e.id, e.amount, e.description, e.date, e.recurring_interval, e.recurring_day,
                et.name as expense_type_name, et.id as expense_type_id
         FROM expenses e
         JOIN expense_types et ON e.expense_type_id = et.id
@@ -131,6 +244,48 @@ def view_expenses():
     chart_query = query.replace(f" LIMIT {per_page} OFFSET {offset}", "")
     all_expenses = conn.execute(chart_query, query_params).fetchall()
     
+    # Get recurring expenses for this month
+    recurring_expenses = get_recurring_expenses_for_month(
+        conn, 
+        month_id, 
+        month_data['month'], 
+        month_data['year']
+    )
+    
+    # Add recurring expenses to the list of expenses
+    # Note: These are not stored in the database yet, just calculated on-the-fly
+    all_expenses = list(all_expenses) + recurring_expenses
+    
+    # For pagination, we need to handle the combined list
+    # Sort the combined list according to the sort criteria
+    if sort_by == 'amount':
+        all_expenses.sort(key=lambda x: x['amount'], reverse=(sort_order == 'desc'))
+    elif sort_by == 'expense_type':
+        all_expenses.sort(key=lambda x: x['expense_type_name'], reverse=(sort_order == 'desc'))
+    else:  # Default to date
+        all_expenses.sort(key=lambda x: x['date'], reverse=(sort_order == 'desc'))
+    
+    # Apply expense type filter to the combined list if needed
+    if expense_type_filter != 'all':
+        all_expenses = [e for e in all_expenses if str(e['expense_type_id']) == str(expense_type_filter)]
+    
+    # Update total count for pagination
+    total_count = len(all_expenses)
+    
+    # Calculate total pages based on the new count
+    total_pages = (total_count + per_page - 1) // per_page  # Ceiling division
+    
+    # Ensure page is within valid range
+    if page < 1:
+        page = 1
+    elif page > total_pages and total_pages > 0:
+        page = total_pages
+    
+    # Apply pagination to the combined list
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    expenses = all_expenses[start_idx:end_idx] if start_idx < len(all_expenses) else []
+    
     # Calculate total amount for filtered expenses (using all expenses, not just paginated ones)
     total_amount = sum(expense['amount'] for expense in all_expenses)
     
@@ -166,8 +321,21 @@ def edit_expense():
         description = request.form.get('description')
         expense_type_id = request.form.get('expense_type_id')
         date = request.form.get('date')
-        is_recurring = 'is_recurring' in request.form
-        recurring_day = request.form.get('recurring_day') if is_recurring else None
+        recurring_interval = request.form.get('recurring_interval', 'none')
+        
+        # Only use recurring_day for monthly recurrences
+        recurring_day = None
+        if recurring_interval == 'monthly':
+            recurring_day = request.form.get('recurring_day')
+            
+            # If recurring_day is not provided, extract it from the date
+            if not recurring_day and date:
+                from datetime import datetime
+                try:
+                    date_obj = datetime.strptime(date, '%Y-%m-%d')
+                    recurring_day = date_obj.day
+                except ValueError:
+                    pass
         
         # Basic validation
         if not expense_id or not amount or not expense_type_id or not date:
@@ -213,9 +381,9 @@ def edit_expense():
             cursor = conn.cursor()
             cursor.execute('''
                 UPDATE expenses
-                SET amount = ?, description = ?, expense_type_id = ?, date = ?, is_recurring = ?, recurring_day = ?
+                SET amount = ?, description = ?, expense_type_id = ?, date = ?, recurring_interval = ?, recurring_day = ?
                 WHERE id = ?
-            ''', (amount, description, expense_type_id, date, is_recurring, recurring_day, expense_id))
+            ''', (amount, description, expense_type_id, date, recurring_interval, recurring_day, expense_id))
             conn.commit()
             flash('Expense updated successfully', 'success')
         except sqlite3.Error as e:

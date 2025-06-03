@@ -15,7 +15,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), DB_NAME)
 def create_database():
     """Create the database and tables"""
     
-    # Remove existing database if it exists (for development)
+    # Hard delete the old database if it exists
     if os.path.exists(DB_PATH):
         print(f"Removing existing database: {DB_PATH}")
         os.remove(DB_PATH)
@@ -50,7 +50,7 @@ def create_database():
         )
     ''')
     
-    # Create expenses table
+    # Create expenses table with updated recurring fields
     cursor.execute('''
         CREATE TABLE expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,8 +58,9 @@ def create_database():
             description TEXT,
             expense_type_id INTEGER NOT NULL,
             date DATE NOT NULL,
-            is_recurring BOOLEAN DEFAULT FALSE,
+            recurring_interval TEXT CHECK (recurring_interval IN ('none', 'monthly', 'biannual', 'yearly') OR recurring_interval IS NULL),
             recurring_day INTEGER CHECK (recurring_day >= 1 AND recurring_day <= 31),
+            is_recurring_template BOOLEAN DEFAULT FALSE,
             is_active BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -73,12 +74,16 @@ def create_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             expense_id INTEGER NOT NULL,
             month_id INTEGER NOT NULL,
+            instance_date DATE NOT NULL,
             amount DECIMAL(10, 2) NOT NULL,
+            description TEXT,
+            expense_type_id INTEGER NOT NULL,
             is_paid BOOLEAN DEFAULT FALSE,
             paid_date DATE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
             FOREIGN KEY (month_id) REFERENCES months(id) ON DELETE CASCADE,
+            FOREIGN KEY (expense_type_id) REFERENCES expense_types(id),
             UNIQUE(expense_id, month_id)
         )
     ''')
@@ -86,7 +91,7 @@ def create_database():
     # Create indexes for better performance
     cursor.execute('CREATE INDEX idx_expenses_date ON expenses(date)')
     cursor.execute('CREATE INDEX idx_expenses_type ON expenses(expense_type_id)')
-    cursor.execute('CREATE INDEX idx_expenses_recurring ON expenses(is_recurring)')
+    cursor.execute('CREATE INDEX idx_expenses_recurring ON expenses(recurring_interval)')
     cursor.execute('CREATE INDEX idx_months_date ON months(year, month)')
     
     # Create trigger to update updated_at timestamp

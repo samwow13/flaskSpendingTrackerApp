@@ -1,6 +1,8 @@
 from flask import Blueprint, request, redirect, url_for, render_template, flash, session
 import sqlite3
 import os
+from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
 
 # Create a Blueprint for month-related routes
 month_routes = Blueprint('month_routes', __name__)
@@ -189,6 +191,9 @@ def add_month():
         conn.commit()
         new_month_id = cursor.lastrowid
         
+        # Process recurring expenses for the new month
+        process_recurring_expenses(conn, int(month), int(year), new_month_id)
+        
         # Store the new month in session and redirect to index
         session['current_month_id'] = new_month_id
         conn.close()
@@ -218,6 +223,120 @@ def add_month():
                               months=months, 
                               current_month_id=current_month_id,
                               month_error=f"Database error: {e}")
+
+def process_recurring_expenses(conn, new_month, new_year, new_month_id):
+    """Process recurring expenses for a newly created month
+    
+    This function checks all active recurring expenses and creates instances for the new month
+    based on their recurring_interval:
+    - 'monthly': Creates an instance every month on the specified day
+    - 'biannual': Creates an instance every 6 months
+    - 'yearly': Creates an instance every 12 months
+    """
+    print(f"\n\n==== Processing recurring expenses for {new_month}/{new_year} (Month ID: {new_month_id}) ====")
+    try:
+        # Get all active recurring expenses
+        cursor = conn.cursor()
+        recurring_expenses = cursor.execute("""
+            SELECT id, amount, description, date, expense_type_id, recurring_interval, recurring_day
+            FROM expenses
+            WHERE is_active = 1 AND recurring_interval != 'none'
+        """).fetchall()
+        
+        print(f"Found {len(recurring_expenses)} active recurring expenses")
+        for idx, expense in enumerate(recurring_expenses):
+            print(f"\nExpense #{idx+1}:")
+            print(f"  ID: {expense['id']}")
+            print(f"  Description: {expense['description']}")
+            print(f"  Amount: ${expense['amount']}")
+            print(f"  Date: {expense['date']}")
+            print(f"  Recurring Interval: {expense['recurring_interval']}")
+            print(f"  Recurring Day: {expense['recurring_day']}")
+        
+        # Calculate the target date for the new month
+        target_date = date(new_year, new_month, 1)
+        
+        for expense in recurring_expenses:
+            # Get the original expense date
+            original_date = datetime.strptime(expense['date'], '%Y-%m-%d').date()
+            expense_id = expense['id']
+            recurring_interval = expense['recurring_interval']
+            recurring_day = expense['recurring_day']
+            
+            # Determine if this recurring expense should be included in the new month
+            should_include = False
+            new_expense_date = None
+            
+            if recurring_interval == 'monthly':
+                # Monthly expenses recur every month on the specified day
+                should_include = True
+                
+                # Use the recurring_day if specified, otherwise use the day from the original date
+                day_to_use = int(recurring_day) if recurring_day is not None else original_date.day
+                print(f"  Monthly expense - using day: {day_to_use} (from recurring_day: {recurring_day}, type: {type(recurring_day)})")
+                print(f"  Original date: {original_date}, day: {original_date.day}")
+                
+                # Make sure the day is valid for the month (e.g., no February 30)
+                last_day_of_month = (date(new_year, new_month, 1) + relativedelta(months=1, days=-1)).day
+                day_to_use = min(day_to_use, last_day_of_month)
+                print(f"  Adjusted day for month length: {day_to_use}")
+                
+                new_expense_date = date(new_year, new_month, day_to_use)
+                print(f"  New expense date: {new_expense_date}")
+                
+            elif recurring_interval == 'biannual':
+                # Biannual expenses recur every 6 months
+                # Calculate months difference between original date and target date
+                months_diff = (new_year - original_date.year) * 12 + (new_month - original_date.month)
+                should_include = months_diff % 6 == 0
+                
+                if should_include:
+                    # Use the same day of the month if possible
+                    day_to_use = min(original_date.day, (date(new_year, new_month, 1) + relativedelta(months=1, days=-1)).day)
+                    new_expense_date = date(new_year, new_month, day_to_use)
+                
+            elif recurring_interval == 'yearly':
+                # Yearly expenses recur every 12 months
+                # Check if month and day match (same month every year)
+                should_include = new_month == original_date.month
+                
+                if should_include:
+                    # Use the same day of the month if possible
+                    day_to_use = min(original_date.day, (date(new_year, new_month, 1) + relativedelta(months=1, days=-1)).day)
+                    new_expense_date = date(new_year, new_month, day_to_use)
+            
+            # If this expense should be included in the new month, create a recurring instance
+            if should_include and new_expense_date:
+                # Format the date as string for database
+                new_date_str = new_expense_date.strftime('%Y-%m-%d')
+                
+                print(f"  Creating recurring instance for {new_date_str}")
+                
+                # Create a new recurring expense instance
+                cursor.execute("""
+                    INSERT INTO recurring_expense_instances 
+                    (expense_id, month_id, instance_date, amount, description, expense_type_id)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    expense_id, 
+                    new_month_id, 
+                    new_date_str,
+                    expense['amount'],
+                    expense['description'],
+                    expense['expense_type_id']
+                ))
+        
+        # Commit all changes
+        conn.commit()
+        print("\n==== Successfully processed recurring expenses ====\n")
+        
+    except Exception as e:
+        # Log the error but don't fail the month creation
+        print(f"\n==== ERROR processing recurring expenses: {e} ====\n")
+        import traceback
+        traceback.print_exc()
+        # Roll back any changes made
+        conn.rollback()
 
 @month_routes.route('/set_current_month/<int:month_id>', methods=['GET'])
 def set_current_month(month_id):
