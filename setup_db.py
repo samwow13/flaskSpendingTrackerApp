@@ -111,6 +111,7 @@ def create_database():
         'Phone',
         'Internet',
         'Insurance',
+        'Car Insurance',
         'Groceries',
         'Gas',
         'Shopping',

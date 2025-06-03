@@ -179,7 +179,7 @@
     </div>
 </div>
 
-{% set recurring_expenses = expenses|selectattr('is_recurring_instance', 'defined')|selectattr('is_recurring_instance')|list %}
+{% set recurring_expenses = all_expenses|selectattr('is_recurring_instance', 'defined')|selectattr('is_recurring_instance')|list %}
 {% if recurring_expenses|length > 0 %}
 <div class="card mb-3 shadow-sm" style="border-radius: 0.75rem; border-left: 3px solid #0d6efd;">
     <div class="card-body">

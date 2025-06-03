@@ -311,16 +311,62 @@ def seed_data():
             
             # Insert the expense into the database
             cursor.execute('''
-                INSERT INTO expenses (amount, description, expense_type_id, date, is_recurring, recurring_day)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (amount, description, expense_type_id, date_str, False, None))
+                INSERT INTO expenses (amount, description, expense_type_id, date, is_recurring_template, recurring_interval, recurring_day)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (amount, description, expense_type_id, date_str, False, 'none', None))
+        
+        # Add specific recurring expenses as requested
+        # 1. Internet - $90 monthly
+        internet_type_id = None
+        for expense_type in expense_types:
+            if expense_type['name'] == 'Internet':
+                internet_type_id = expense_type['id']
+                break
+        
+        if internet_type_id:
+            # Create the date string in YYYY-MM-DD format for the 1st of the month
+            date_str = f"{year}-{month:02d}-01"
+            cursor.execute('''
+                INSERT INTO expenses (amount, description, expense_type_id, date, is_recurring_template, recurring_interval, recurring_day)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (90.00, 'Internet', internet_type_id, date_str, True, 'monthly', 1))
+        
+        # 2. Car Insurance - $550 monthly
+        insurance_type_id = None
+        for expense_type in expense_types:
+            if expense_type['name'] == 'Car Insurance':
+                insurance_type_id = expense_type['id']
+                break
+        
+        if insurance_type_id:
+            # Create the date string in YYYY-MM-DD format for the 5th of the month
+            date_str = f"{year}-{month:02d}-05"
+            cursor.execute('''
+                INSERT INTO expenses (amount, description, expense_type_id, date, is_recurring_template, recurring_interval, recurring_day)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (550.00, 'Car Insurance', insurance_type_id, date_str, True, 'monthly', 5))
+        
+        # 3. Amazon - $105 yearly
+        amazon_type_id = None
+        for expense_type in expense_types:
+            if expense_type['name'] == 'Amazon':
+                amazon_type_id = expense_type['id']
+                break
+        
+        if amazon_type_id:
+            # Create the date string in YYYY-MM-DD format for the 15th of the month
+            date_str = f"{year}-{month:02d}-15"
+            cursor.execute('''
+                INSERT INTO expenses (amount, description, expense_type_id, date, is_recurring_template, recurring_interval, recurring_day)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (105.00, 'Amazon Prime Subscription', amazon_type_id, date_str, True, 'yearly', 15))
         
         conn.commit()
         conn.close()
         
         return jsonify({
             'success': True, 
-            'message': 'Successfully generated 10 random expenses for the selected month!'
+            'message': 'Successfully generated sample expenses and recurring expenses for the selected month!'
         })
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error seeding data: {str(e)}'}), 500
