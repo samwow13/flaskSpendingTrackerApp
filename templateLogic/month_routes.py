@@ -3,6 +3,7 @@ import sqlite3
 import os
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
+from utils import calculate_total_expenses
 
 # Create a Blueprint for month-related routes
 month_routes = Blueprint('month_routes', __name__)
@@ -59,13 +60,17 @@ def update_month():
         current_month_data = conn.execute('SELECT * FROM months WHERE id = ?', (month_id,)).fetchone()
         
         # Calculate total expenses for the current month
+                # Calculate total expenses for the current month using the consistent calculation function
         total_amount = 0.0
         if current_month_data:
-            total_amount_row = conn.execute(
-                'SELECT SUM(amount) as total FROM expenses WHERE is_active = TRUE AND strftime("%Y", date) = ? AND strftime("%m", date) = ?',
-                (str(current_month_data['year']), f"{int(current_month_data['month']):02d}")
-            ).fetchone()
-            total_amount = total_amount_row['total'] if total_amount_row['total'] is not None else 0.0
+            total_amount = calculate_total_expenses(current_month_data['month'], current_month_data['year'], conn)
+        # total_amount = 0.0
+        # if current_month_data:
+        #     total_amount_row = conn.execute(
+        #         'SELECT SUM(amount) as total FROM expenses WHERE is_active = TRUE AND strftime("%Y", date) = ? AND strftime("%m", date) = ?',
+        #         (str(current_month_data['year']), f"{int(current_month_data['month']):02d}")
+        #     ).fetchone()
+        #     total_amount = total_amount_row['total'] if total_amount_row['total'] is not None else 0.0
         
         # Fetch recent expenses for the template
         recent_expenses = conn.execute('''
@@ -92,13 +97,10 @@ def update_month():
         current_month_data = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC LIMIT 1').fetchone()
         
         # Calculate total expenses for the current month
+        # Calculate total expenses for the current month using the consistent calculation function
         total_amount = 0.0
         if current_month_data:
-            total_amount_row = conn.execute(
-                'SELECT SUM(amount) as total FROM expenses WHERE is_active = TRUE AND strftime("%Y", date) = ? AND strftime("%m", date) = ?',
-                (str(current_month_data['year']), f"{int(current_month_data['month']):02d}")
-            ).fetchone()
-            total_amount = total_amount_row['total'] if total_amount_row['total'] is not None else 0.0
+            total_amount = calculate_total_expenses(current_month_data['month'], current_month_data['year'], conn)
         
         # Fetch recent expenses for the template
         recent_expenses = conn.execute('''
@@ -126,10 +128,10 @@ def list_months():
     """List all months"""
     conn = get_db_connection()
     months = conn.execute('SELECT * FROM months ORDER BY year DESC, month DESC').fetchall()
-    # For each month, calculate total expenses
+    # For each month, calculate total expenses using the consistent calculation function
     months_with_expenses = []
     for month in months:
-        total_expenses = conn.execute('SELECT IFNULL(SUM(amount), 0) as total FROM expenses WHERE strftime("%Y", date) = ? AND strftime("%m", date) = ?', (str(month['year']), str(month['month']).zfill(2))).fetchone()['total']
+        total_expenses = calculate_total_expenses(month['month'], month['year'], conn)
         month_dict = dict(month)
         month_dict['total_expenses'] = total_expenses
         months_with_expenses.append(month_dict)

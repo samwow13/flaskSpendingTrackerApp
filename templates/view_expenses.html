@@ -40,6 +40,17 @@
         border-color: #dee2e6;
         color: #5a3cbf;
     }
+    
+    /* Sortable column styles */
+    th a.text-decoration-none {
+        transition: color 0.2s ease;
+    }
+    th a.text-decoration-none:hover {
+        color: #6c47de !important;
+    }
+    th a.text-decoration-none i {
+        font-size: 0.8rem;
+    }
 </style>
 {% endblock %}
 
@@ -179,7 +190,7 @@
     </div>
 </div>
 
-{% set recurring_expenses = expenses|selectattr('is_recurring_instance', 'defined')|selectattr('is_recurring_instance')|list %}
+{% set recurring_expenses = all_expenses|selectattr('is_recurring_instance', 'defined')|selectattr('is_recurring_instance')|list %}
 {% if recurring_expenses|length > 0 %}
 <div class="card mb-3 shadow-sm" style="border-radius: 0.75rem; border-left: 3px solid #0d6efd;">
     <div class="card-body">
@@ -250,10 +261,31 @@
                         <table class="table table-hover table-sm table-bordered expense-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="text-center align-middle">Date</th>
+                                    <th class="text-center align-middle">
+    <a href="{{ url_for('expense_routes.view_expenses', month_id=month_data.id, expense_type_id=expense_type_filter, sort_by='date', sort_order='asc' if sort_by == 'date' and sort_order == 'desc' else 'desc', page=page) }}" class="text-decoration-none text-dark d-flex align-items-center justify-content-center">
+        Date
+        {% if sort_by == 'date' %}
+            <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }} ms-1"></i>
+        {% endif %}
+    </a>
+</th>
 <th class="text-center align-middle">Description</th>
-<th class="text-center align-middle">Type</th>
-<th class="text-center align-middle">Amount</th>
+<th class="text-center align-middle">
+    <a href="{{ url_for('expense_routes.view_expenses', month_id=month_data.id, expense_type_id=expense_type_filter, sort_by='expense_type', sort_order='asc' if sort_by == 'expense_type' and sort_order == 'desc' else 'desc', page=page) }}" class="text-decoration-none text-dark d-flex align-items-center justify-content-center">
+        Type
+        {% if sort_by == 'expense_type' %}
+            <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }} ms-1"></i>
+        {% endif %}
+    </a>
+</th>
+<th class="text-center align-middle">
+    <a href="{{ url_for('expense_routes.view_expenses', month_id=month_data.id, expense_type_id=expense_type_filter, sort_by='amount', sort_order='asc' if sort_by == 'amount' and sort_order == 'desc' else 'desc', page=page) }}" class="text-decoration-none text-dark d-flex align-items-center justify-content-center">
+        Amount
+        {% if sort_by == 'amount' %}
+            <i class="bi bi-arrow-{{ 'down' if sort_order == 'desc' else 'up' }} ms-1"></i>
+        {% endif %}
+    </a>
+</th>
 <th class="text-center align-middle">Recurring</th>
 <th class="text-center align-middle">Actions</th>
                                 </tr>
